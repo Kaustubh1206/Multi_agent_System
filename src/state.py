@@ -1,5 +1,5 @@
 from langgraph.graph import add_messages
-from typing import Annotated, Literal ,List, NotRequired
+from typing import Annotated, Literal ,List, NotRequired 
 from typing_extensions import TypedDict
 from langchain_core.messages import AnyMessage
 
@@ -11,7 +11,6 @@ class RetailTask(TypedDict):
     item_id: List[str]
 
 # Supervisor State
-
 class SupervisorState(TypedDict):
     messages: Annotated[List[AnyMessage], add_messages]
     tasks : NotRequired[List[RetailTask]]
@@ -19,3 +18,4 @@ class SupervisorState(TypedDict):
     supervisior_state: NotRequired[
         Literal['needs_information','ready','unsupported']
     ]
+
