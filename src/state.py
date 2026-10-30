@@ -9,13 +9,17 @@ class RetailTask(TypedDict):
     intent: Literal['refund',"return","delivery","product","order"]
     order_id: str | None 
     item_id: List[str]
+    messages: Annotated[List[AnyMessage], add_messages]
+    missing_fields: NotRequired[List[str]]
+
 
 # Supervisor State
-class SupervisorState(TypedDict):
+class WorkflowState(TypedDict):
     messages: Annotated[List[AnyMessage], add_messages]
     tasks : NotRequired[List[RetailTask]]
     missing_fields: NotRequired[List[str]]
     supervisior_state: NotRequired[
         Literal['needs_information','ready','unsupported']
     ]
+    order_status : Literal['pending','awaiting_customer','delivered']
 
