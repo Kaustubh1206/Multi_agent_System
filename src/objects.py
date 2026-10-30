@@ -1,4 +1,6 @@
 from typing import Literal
 from pydantic import BaseModel, Field
 
-class 
+class SupervisorOuput(BaseModel):
+    next_agent : Literal['identity','order','policy']
+    
