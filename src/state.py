@@ -13,14 +13,3 @@ class RetailTask(TypedDict):
     clarification_questions: NotRequired[str]
 
 
-
-# Supervisor State
-class WorkflowState(TypedDict):
-    messages: Annotated[List[AnyMessage], add_messages]
-    tasks : NotRequired[List[RetailTask]]
-
-    supervisior_state: NotRequired[
-        Literal['needs_information','ready','unsupported']
-    ]
-    order_status : Literal['pending','awaiting_customer','delivered']
-
