@@ -1,7 +1,7 @@
 {
-    "dependencies":["."],
-    "graphs":{
-        "nodes": "src/nodes.py:graph"
-    },
-    "env":".env"
+  "dependencies": ["."],
+  "graphs": {
+    "graph": "src.graphs:graph"
+  },
+  "env": ".env"
 }
