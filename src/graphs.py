@@ -4,7 +4,7 @@ from langgraph.graph import START, END, StateGraph
 from src.state import RetailState
 from src.nodes import (
     supervisor_node,
-    clarification_node,
+    customer_input_node,
     identity_node,
     order_node,
     policy_node,
@@ -21,7 +21,7 @@ def route_supervisor(state: RetailState) -> str:
 builder = StateGraph(RetailState)
 
 builder.add_node("supervisor", supervisor_node)
-builder.add_node("clarification", clarification_node)
+builder.add_node("customer_input_node", customer_input_node)
 builder.add_node("identity", identity_node)
 builder.add_node("order", order_node)
 builder.add_node("policy", policy_node)
@@ -32,7 +32,7 @@ builder.add_conditional_edges(
     "supervisor",
     route_supervisor,
     {
-        "clarification": "clarification",
+        "customer_input_node": "customer_input_node",
         "identity": "identity",
         "order": "order",
         "policy": "policy",
@@ -40,7 +40,7 @@ builder.add_conditional_edges(
 )
 
 # Once the customer answers, reconsider the request.
-builder.add_edge("clarification", "supervisor")
+builder.add_edge("customer_input_node", "supervisor")
 
 builder.add_edge("identity", END)
 builder.add_edge("order", END)
