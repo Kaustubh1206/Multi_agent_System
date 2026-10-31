@@ -56,12 +56,12 @@ def supervisor_node(state: RetailState)-> dict:
             if response.user_id is not None
             else state.get("user_id")
         ),
-        "customer_input": response.customer_input,
+        "clarification_question": response.clarification_question,
     }
 
 
 def customer_input_node(state: RetailState) -> dict:
-    question = state["customer_input"]
+    question = state["clarification_question"]
 
     # Pause execution. The application displays this question.
     customer_reply = interrupt({"question": question})
@@ -72,7 +72,7 @@ def customer_input_node(state: RetailState) -> dict:
             AIMessage(content=question),
             HumanMessage(content=customer_reply),
         ],
-        "customer_input": None,
+        "clarification_question": None,
     }
 
 # Placeholders: replace these with actual specialist implementations.

@@ -13,7 +13,7 @@ from src.nodes import (
 
 def route_supervisor(state: RetailState) -> str:
     if state.get("clarification_question"):
-        return "clarification"
+        return "customer_input_node"
 
     return state["next_agent"]
 

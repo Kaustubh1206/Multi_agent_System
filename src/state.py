@@ -10,6 +10,4 @@ class RetailState(TypedDict):
     order_id: str | None 
     user_id: str | None
     next_agent: NotRequired[Literal["identity", "order", "policy"]]
-    customer_input_node: NotRequired[str|None]
-
-
+    clarification_question: NotRequired[str | None]
