@@ -1,0 +1,156 @@
+{
+  "fictional": true,
+  "evaluation_date": "2026-11-14",
+  "customers": [
+    {
+      "customer_id": "CUS-001",
+      "name": "Avery Brooks",
+      "email": "customer01@example.com",
+      "order": {
+        "order_id": "ORD-001",
+        "product": "Blue mug",
+        "quantity": 1,
+        "total_usd": 12,
+        "status": "shipped",
+        "ordered_on": "2026-11-01",
+        "delivered_on": null,
+        "returnable": true
+      }
+    },
+    {
+      "customer_id": "CUS-002",
+      "name": "Morgan Chen",
+      "email": "customer02@example.com",
+      "order": {
+        "order_id": "ORD-002",
+        "product": "Desk lamp",
+        "quantity": 1,
+        "total_usd": 14,
+        "status": "pending",
+        "ordered_on": "2026-11-01",
+        "delivered_on": null,
+        "returnable": true
+      }
+    },
+    {
+      "customer_id": "CUS-003",
+      "name": "Jordan Patel",
+      "email": "customer03@example.com",
+      "order": {
+        "order_id": "ORD-003",
+        "product": "Cotton shirt",
+        "quantity": 1,
+        "total_usd": 16,
+        "status": "delivered",
+        "ordered_on": "2026-11-01",
+        "delivered_on": "2026-11-05",
+        "returnable": true
+      }
+    },
+    {
+      "customer_id": "CUS-004",
+      "name": "Riley Jones",
+      "email": "customer04@example.com",
+      "order": {
+        "order_id": "ORD-004",
+        "product": "Notebook",
+        "quantity": 1,
+        "total_usd": 18,
+        "status": "delivered",
+        "ordered_on": "2026-11-01",
+        "delivered_on": "2026-11-05",
+        "returnable": true
+      }
+    },
+    {
+      "customer_id": "CUS-005",
+      "name": "Casey Rivera",
+      "email": "customer05@example.com",
+      "order": {
+        "order_id": "ORD-005",
+        "product": "Water bottle",
+        "quantity": 1,
+        "total_usd": 20,
+        "status": "delivered",
+        "ordered_on": "2026-10-01",
+        "delivered_on": "2026-10-05",
+        "returnable": true
+      }
+    },
+    {
+      "customer_id": "CUS-006",
+      "name": "Taylor Kim",
+      "email": "customer06@example.com",
+      "order": {
+        "order_id": "ORD-006",
+        "product": "Canvas bag",
+        "quantity": 1,
+        "total_usd": 22,
+        "status": "pending",
+        "ordered_on": "2026-11-01",
+        "delivered_on": null,
+        "returnable": true
+      }
+    },
+    {
+      "customer_id": "CUS-007",
+      "name": "Jamie Shah",
+      "email": "customer07@example.com",
+      "order": {
+        "order_id": "ORD-007",
+        "product": "Tea towel",
+        "quantity": 1,
+        "total_usd": 24,
+        "status": "shipped",
+        "ordered_on": "2026-11-01",
+        "delivered_on": null,
+        "returnable": true
+      }
+    },
+    {
+      "customer_id": "CUS-008",
+      "name": "Alex Reed",
+      "email": "customer08@example.com",
+      "order": {
+        "order_id": "ORD-008",
+        "product": "Pencil set",
+        "quantity": 1,
+        "total_usd": 26,
+        "status": "delivered",
+        "ordered_on": "2026-11-01",
+        "delivered_on": "2026-11-05",
+        "returnable": true
+      }
+    },
+    {
+      "customer_id": "CUS-009",
+      "name": "Sam Ellis",
+      "email": "customer09@example.com",
+      "order": {
+        "order_id": "ORD-009",
+        "product": "Lunch box",
+        "quantity": 1,
+        "total_usd": 28,
+        "status": "pending",
+        "ordered_on": "2026-11-01",
+        "delivered_on": null,
+        "returnable": true
+      }
+    },
+    {
+      "customer_id": "CUS-010",
+      "name": "Quinn Park",
+      "email": "customer10@example.com",
+      "order": {
+        "order_id": "ORD-010",
+        "product": "Wool scarf",
+        "quantity": 1,
+        "total_usd": 30,
+        "status": "delivered",
+        "ordered_on": "2026-11-01",
+        "delivered_on": "2026-11-05",
+        "returnable": true
+      }
+    }
+  ]
+}

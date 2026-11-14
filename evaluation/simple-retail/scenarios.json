@@ -1,0 +1,51 @@
+{
+  "evaluation_date": "2026-11-14",
+  "usage": "Synthetic development examples, not model test results. Start each scenario with fresh data. Non-null customer_id represents a trusted, already verified application session; customer text is not proof of identity. Expected outcomes are evaluation targets; current specialist nodes are placeholders.",
+  "scenarios": [
+    {
+      "id": "S01",
+      "title": "Check an order",
+      "customer_id": "CUS-001",
+      "order_id": "ORD-001",
+      "message": "Where is my blue mug order ORD-001?",
+      "expected_route": "order",
+      "expected_outcome": "Report that ORD-001 has shipped. Do not invent a delivery date."
+    },
+    {
+      "id": "S02",
+      "title": "Missing order number",
+      "customer_id": null,
+      "order_id": null,
+      "message": "Where is my order?",
+      "expected_route": "customer_input_node",
+      "expected_outcome": "Ask for the order number before looking up an order."
+    },
+    {
+      "id": "S03",
+      "title": "General return policy",
+      "customer_id": null,
+      "order_id": null,
+      "message": "How long do I have to return an item?",
+      "expected_route": "policy",
+      "expected_outcome": "Explain that returnable items can be returned within 30 days after delivery. No customer or order ID is needed."
+    },
+    {
+      "id": "S04",
+      "title": "Return within the window",
+      "customer_id": "CUS-003",
+      "order_id": "ORD-003",
+      "message": "Can I return the cotton shirt from order ORD-003?",
+      "expected_route": "order",
+      "expected_outcome": "Explain that the item is eligible: it was delivered 9 days ago and is returnable. Ask for confirmation before requesting a return."
+    },
+    {
+      "id": "S05",
+      "title": "Return window expired",
+      "customer_id": "CUS-005",
+      "order_id": "ORD-005",
+      "message": "Can I return the water bottle from order ORD-005?",
+      "expected_route": "order",
+      "expected_outcome": "Explain that the 30-day return window has expired: delivery was 40 days ago. Do not request a return."
+    }
+  ]
+}

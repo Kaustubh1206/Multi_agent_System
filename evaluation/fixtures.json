@@ -1,0 +1,147 @@
+{
+  "policy_version": "custom-retail-v1",
+  "evaluation_date": "2026-10-31",
+  "timezone": "America/New_York",
+  "customers": [
+    {
+      "user_id": "USR-001",
+      "name": "Alex Example"
+    },
+    {
+      "user_id": "USR-002",
+      "name": "Jordan Example"
+    }
+  ],
+  "products": [
+    {
+      "product_id": "PRD-001",
+      "name": "Everyday Backpack",
+      "description": "A compact everyday backpack.",
+      "price": 49.0,
+      "currency": "USD",
+      "available": true
+    },
+    {
+      "product_id": "PRD-002",
+      "name": "Travel Mug",
+      "description": "An insulated reusable mug.",
+      "price": 18.0,
+      "currency": "USD",
+      "available": false
+    }
+  ],
+  "orders": [
+    {
+      "order_id": "ORD-1001",
+      "user_id": "USR-001",
+      "status": "pending",
+      "delivered_on": null,
+      "shipment_status": "not_shipped",
+      "items": [
+        {
+          "item_id": "ITEM-1001",
+          "product_id": "PRD-001",
+          "quantity": 1,
+          "returnable": true,
+          "return_status": "none"
+        }
+      ]
+    },
+    {
+      "order_id": "ORD-1002",
+      "user_id": "USR-001",
+      "status": "shipped",
+      "delivered_on": null,
+      "shipment_status": "in_transit",
+      "items": [
+        {
+          "item_id": "ITEM-1002",
+          "product_id": "PRD-001",
+          "quantity": 1,
+          "returnable": true,
+          "return_status": "none"
+        }
+      ]
+    },
+    {
+      "order_id": "ORD-1003",
+      "user_id": "USR-001",
+      "status": "delivered",
+      "delivered_on": "2026-10-20",
+      "shipment_status": "delivered",
+      "items": [
+        {
+          "item_id": "ITEM-1003",
+          "product_id": "PRD-001",
+          "quantity": 1,
+          "returnable": true,
+          "return_status": "none"
+        }
+      ]
+    },
+    {
+      "order_id": "ORD-1004",
+      "user_id": "USR-001",
+      "status": "delivered",
+      "delivered_on": "2026-09-01",
+      "shipment_status": "delivered",
+      "items": [
+        {
+          "item_id": "ITEM-1004",
+          "product_id": "PRD-001",
+          "quantity": 1,
+          "returnable": true,
+          "return_status": "none"
+        }
+      ]
+    },
+    {
+      "order_id": "ORD-1005",
+      "user_id": "USR-002",
+      "status": "pending",
+      "delivered_on": null,
+      "shipment_status": "not_shipped",
+      "items": [
+        {
+          "item_id": "ITEM-1005",
+          "product_id": "PRD-001",
+          "quantity": 1,
+          "returnable": true,
+          "return_status": "none"
+        }
+      ]
+    },
+    {
+      "order_id": "ORD-1006",
+      "user_id": "USR-001",
+      "status": "delivered",
+      "delivered_on": "2026-10-01",
+      "shipment_status": "delivered",
+      "items": [
+        {
+          "item_id": "ITEM-1006",
+          "product_id": "PRD-001",
+          "quantity": 1,
+          "returnable": true,
+          "return_status": "none"
+        }
+      ]
+    },
+    {
+      "order_id": "ORD-1007",
+      "user_id": "USR-001",
+      "status": "delivered",
+      "delivered_on": "2026-09-30",
+      "shipment_status": "delivered",
+      "items": [
+        {
+          "item_id": "ITEM-1007",
+          "product_id": "PRD-001",
+          "quantity": 1,
+          "returnable": true,
+          "return_status": "none"
+        }
+      ]
+    }
+  ]
+}
