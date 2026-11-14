@@ -1,6 +1,6 @@
 {
   "evaluation_date": "2026-11-14",
-  "usage": "Synthetic development examples, not model test results. Start each scenario with fresh data. Non-null customer_id represents a trusted, already verified application session; customer text is not proof of identity. Expected outcomes are evaluation targets; current specialist nodes are placeholders.",
+  "usage": "Synthetic development examples, not live model test results. Use a fresh thread for each scenario. Non-null customer_id can be supplied as trusted session input (verified_user_id); otherwise identify the fictional customer by unique full name or email. The current application is read-only.",
   "scenarios": [
     {
       "id": "S01",
@@ -36,7 +36,7 @@
       "order_id": "ORD-003",
       "message": "Can I return the cotton shirt from order ORD-003?",
       "expected_route": "order",
-      "expected_outcome": "Explain that the item is eligible: it was delivered 9 days ago and is returnable. Ask for confirmation before requesting a return."
+      "expected_outcome": "Explain that the item is eligible: it was delivered 9 days ago and is returnable. Explain that explicit confirmation would be required for submission; no return has been requested by this read-only application."
     },
     {
       "id": "S05",
