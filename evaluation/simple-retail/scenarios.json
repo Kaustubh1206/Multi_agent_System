@@ -17,8 +17,8 @@
       "customer_id": null,
       "order_id": null,
       "message": "Where is my order?",
-      "expected_route": "customer_input_node",
-      "expected_outcome": "Ask for the order number before looking up an order."
+      "expected_route": "supervisor",
+      "expected_outcome": "Pause in the supervisor with a human-in-the-loop question asking for the order number before specialist dispatch."
     },
     {
       "id": "S03",
