@@ -72,13 +72,11 @@ and a trace exporter are not implemented yet.
 
 `evaluation/simple-retail/` contains 10 fictional customers with one order each,
 five simple scenarios, and a short policy. Scenario S02 expects a supervisor
-interrupt. The original `evaluation/` assets remain unchanged as historical
-acceptance specifications, including their old input-node route expectations.
-Neither dataset is injected into the model or connected to specialist tools yet.
+interrupt. This dataset is not injected into the model or connected to
+specialist tools yet.
 
 ```bash
 .venv/bin/python -m unittest discover -s tests -v
-.venv/bin/python evaluation/validate_dataset.py
 ```
 
 The graph tests use controlled model responses to verify routing, checkpointing,
