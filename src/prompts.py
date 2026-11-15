@@ -9,10 +9,11 @@ Routes:
 
 Rules:
 - For an order-specific request, extract the order ID or ask for it.
+- Known state is authoritative: never ask again for an order ID already present.
 - General policy questions need no customer or order ID.
 - Identity lookup accepts a full name or email in this prototype; a claimed
   customer ID alone is not a successful lookup.
-- Keep the original request in mind when a human supplies missing information.
+- A name/email/order-ID answer continues the original request, not a new task.
 - Never invent identifiers, order facts, policies, or successful actions.
 - Specialists handle lookup, ownership, and eligibility checks.
 - Requests outside retail support have intent unsupported; do not dispatch them.

@@ -106,6 +106,74 @@ class RetailGraphTests(unittest.TestCase):
         result = self.graph.invoke(Command(resume='customer01@example.com'), self.config)
         self.assertEqual(result['agent_result']['reason_code'], 'order_status_found')
 
+    def test_email_resume_ignores_model_omissions_and_redundant_questions(self):
+        # The model misses an explicit ID and would ask for it again.
+        self.supervisor.invoke.return_value = SupervisorOutput(
+            next_agent='order', intent='order',
+            clarification_question='What is your order ID?')
+        # A small extractor may miss email or retain an unrelated name.
+        self.patches['identity'].invoke.return_value = IdentityOutput()
+        result = self.run_request('Where is order ORD-001?')
+        self.assertIn('name or email', result['__interrupt__'][0].value['question'])
+        self.assertEqual(result['order_id'], 'ORD-001')
+        result = self.graph.invoke(Command(resume='customer01@example.com'), self.config)
+        self.assertNotIn('__interrupt__', result)
+        self.assertEqual(result['identity_state']['customer_id'], 'CUS-001')
+        self.assertEqual(result['agent_result']['reason_code'], 'order_status_found')
+        self.assertEqual(result['order_id'], 'ORD-001')
+        self.assertEqual(self.supervisor.invoke.call_count, 1)
+
+    def test_name_correction_does_not_restart_the_order_request(self):
+        self.patches['identity'].invoke.side_effect = [
+            IdentityOutput(), IdentityOutput(name='Avery Brooks')]
+        result = self.run_request('Where is order ORD-001?')
+        result = self.graph.invoke(Command(resume='wrong@example.com'), self.config)
+        self.assertIn('__interrupt__', result)
+        result = self.graph.invoke(Command(resume='Avery Brooks'), self.config)
+        self.assertNotIn('__interrupt__', result)
+        self.assertEqual(result['order_id'], 'ORD-001')
+        self.assertEqual(result['identity_state']['email'], None)
+        self.assertEqual(result['agent_result']['reason_code'], 'order_status_found')
+        self.assertEqual(self.supervisor.invoke.call_count, 1)
+
+    def test_order_id_then_email_continues_without_reclassification(self):
+        self.supervisor.invoke.return_value = SupervisorOutput(next_agent='order', intent='order')
+        self.patches['identity'].invoke.return_value = IdentityOutput()
+        result = self.run_request('Where is my order?')
+        self.assertIn('order ID', result['__interrupt__'][0].value['question'])
+        result = self.graph.invoke(Command(resume='ord-001'), self.config)
+        self.assertIn('name or email', result['__interrupt__'][0].value['question'])
+        result = self.graph.invoke(Command(resume='customer01@example.com'), self.config)
+        self.assertNotIn('__interrupt__', result)
+        self.assertEqual(result['agent_result']['reason_code'], 'order_status_found')
+        self.assertEqual(result['order_id'], 'ORD-001')
+        self.assertEqual(self.supervisor.invoke.call_count, 1)
+        self.assertEqual(result['supervisor_history'][-1]['source'], 'human_resume')
+        self.assertIsNone(result['pending_agent'])
+
+    def test_email_in_a_sentence_overrides_stale_model_fields(self):
+        self.patches['identity'].invoke.side_effect = [
+            IdentityOutput(), IdentityOutput(name='Wrong Person', email='wrong@example.com')]
+        self.run_request('Where is ORD-001?')
+        result = self.graph.invoke(Command(resume='My email is customer01@example.com.'), self.config)
+        self.assertNotIn('__interrupt__', result)
+        self.assertEqual(result['identity_state']['email'], 'customer01@example.com')
+        self.assertIsNone(result['identity_state']['name'])
+
+    def test_customer_can_correct_the_order_id_during_resume(self):
+        self.patches['identity'].invoke.return_value = IdentityOutput()
+        self.run_request('Where is ORD-002?')
+        result = self.graph.invoke(Command(resume='Actually ORD-001, my email is customer01@example.com'), self.config)
+        self.assertEqual(result['order_id'], 'ORD-001')
+        self.assertEqual(result['agent_result']['reason_code'], 'order_status_found')
+
+    def test_order_intent_survives_an_identity_route(self):
+        self.supervisor.invoke.return_value = SupervisorOutput(next_agent='identity', intent='order')
+        self.patches['identity'].invoke.return_value = IdentityOutput()
+        self.run_request('Where is ORD-001?')
+        result = self.graph.invoke(Command(resume='customer01@example.com'), self.config)
+        self.assertEqual(result['agent_result']['reason_code'], 'order_status_found')
+
     def test_other_customers_order_and_unknown_order_are_unavailable(self):
         for order_id in ('ORD-002', 'ORD-999'):
             with self.subTest(order_id=order_id):
@@ -166,12 +234,14 @@ class RetailGraphTests(unittest.TestCase):
         self.assertEqual(result['agent_result']['reason_code'], 'invalid_model_output')
         self.assertEqual(result['tool_history'], [])
 
-    def test_supervisor_failure_after_resume_retains_human_answer(self):
+    def test_specialist_failure_after_resume_retains_human_answer(self):
         self.supervisor.invoke.side_effect = [
             SupervisorOutput(next_agent='order',intent='order',clarification_question='Order ID?'),
             ConnectionError('Ollama unavailable')]
-        self.run_request('Where is my order?')
+        self.patches['order'].invoke.side_effect = ConnectionError('Ollama unavailable')
+        self.run_request('Where is my order?', verified_user_id='CUS-001')
         result = self.graph.invoke(Command(resume='ORD-001'), self.config)
+        self.assertEqual(self.supervisor.invoke.call_count, 1)
         self.assertEqual(result['agent_result']['reason_code'], 'model_error')
         self.assertIn('ORD-001', [m.content for m in result['messages']])
 

@@ -48,12 +48,16 @@ modified by the graph.
 3. Successful identification continues the original order request.
 4. Any specialist needing information returns its question to the supervisor.
 5. The supervisor pauses with `interrupt`; the application collects a human
-   reply and resumes the same thread. It then reclassifies using the conversation.
+   reply and resumes the same thread. It continues the pending specialist without
+   asking the supervisor model to classify the clarification answer again.
 6. Completed answers, denials, and failures end the run. There are no automatic
    retries or separate customer-input node.
 
 Questions and decisions are checkpointed before interruption. Resumption does not
-repeat the earlier lookup/model call just to display the same question. An unclear
+repeat the earlier lookup/model call just to display the same question. Explicit
+`ORD-...` identifiers are captured from human messages and retained in state.
+Bare email replies go straight to lookup; emails in sentences override model
+extraction, and stale names/emails are excluded from identity corrections. An unclear
 answer can lead to another pause. Failures are recorded and stop rather than
 being retried indefinitely.
 
@@ -108,14 +112,15 @@ Each specialist has its own small state:
 | `policy_state` | Selected topic and policy version |
 
 Shared state retains messages, extracted identifiers, routing, the pending
-question, and the latest `agent_result`. A result contains agent, status,
+question, `pending_agent` (the node awaiting a reply), and the latest `agent_result`. A result contains agent, status,
 reason code, customer message, optional question, references, evidence IDs, and
 an optional error type. Status distinguishes `completed`, `needs_information`,
 `denied`, and `failed`; a policy denial is not an operational failure.
 
 For later evaluation/recovery:
 
-- `supervisor_history`: every successful classification/routing decision.
+- `supervisor_history`: classification/routing decisions and human-resume events
+  marked `source: human_resume`, including the specialist being continued.
 - `agent_history`: specialist results and supervisor failures/unsupported outcomes.
 - `tool_history`: unique evidence ID, tool name, arguments, result or error type,
   start time, and duration. Agent evidence references these IDs.
@@ -123,7 +128,7 @@ For later evaluation/recovery:
 - Streaming with `stream_mode="updates"`: node-by-node updates.
 
 Models and tools use native LangChain run tracing. Model runs carry the
-`retail-v2` prompt version; tool run metadata links back to the state evidence ID. Attach callbacks through the
+`retail-v3` prompt version; tool run metadata links back to the state evidence ID. Attach callbacks through the
 run config or enable LangSmith tracing (`LANGSMITH_TRACING=true`, secure
 `LANGSMITH_API_KEY`, `LANGSMITH_PROJECT`) before execution for model inputs,
 outputs, exceptions, timing, parent/child runs, and model usage when Ollama

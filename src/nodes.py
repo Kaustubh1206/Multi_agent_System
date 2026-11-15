@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import datetime, timezone
 from time import perf_counter
 from uuid import uuid4
@@ -17,16 +18,16 @@ from .tools import check_order_eligibility, get_order, get_policy, identify_cust
 
 
 supervisor_llm = supervisor_model.with_structured_output(SupervisorOutput).with_config(
-    run_name="supervisor_decision", metadata={"prompt_version": "retail-v2"}
+    run_name="supervisor_decision", metadata={"prompt_version": "retail-v3"}
 )
 identity_llm = specialist_model.with_structured_output(IdentityOutput).with_config(
-    run_name="identity_extraction", metadata={"prompt_version": "retail-v2"}
+    run_name="identity_extraction", metadata={"prompt_version": "retail-v3"}
 )
 order_llm = specialist_model.with_structured_output(OrderOutput).with_config(
-    run_name="order_classification", metadata={"prompt_version": "retail-v2"}
+    run_name="order_classification", metadata={"prompt_version": "retail-v3"}
 )
 policy_llm = specialist_model.with_structured_output(PolicyOutput).with_config(
-    run_name="policy_classification", metadata={"prompt_version": "retail-v2"}
+    run_name="policy_classification", metadata={"prompt_version": "retail-v3"}
 )
 
 
@@ -56,6 +57,7 @@ def finish(result: AgentResult, events=None, **updates):
         "tool_history": events,
         "messages": [AIMessage(content=result.customer_message)],
         "clarification_question": result.question,
+        "pending_agent": result.agent if result.status == "needs_information" else None,
         **updates,
     }
 
@@ -77,31 +79,57 @@ def customer_id(state):
     return state.get("verified_user_id") or state.get("identity_state", {}).get("customer_id")
 
 
+ORDER_ID = re.compile(r"\bORD-\d+\b", re.IGNORECASE)
+EMAIL = re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.IGNORECASE)
+
+
+def latest_order_id(messages):
+    # Only human text supplies identifiers; assistant/model text is not evidence.
+    for message in reversed(messages):
+        if isinstance(message, HumanMessage) and isinstance(message.content, str):
+            if match := ORDER_ID.search(message.content):
+                return match.group().upper()
+    return None
+
+
 def supervisor_node(state: RetailState) -> dict:
     new_messages = []
     if question := state.get("clarification_question"):
-        # The question and previous decision were saved on the preceding step.
         reply = interrupt({"question": question})
         if not isinstance(reply, str) or not reply.strip():
             raise ValueError("Resume with a non-empty human reply string.")
-        new_messages.append(HumanMessage(content=reply))
+        new_messages.append(HumanMessage(content=reply.strip()))
 
-    context = {"order_id": state.get("order_id"), "user_id": state.get("user_id"),
+    messages = [*state["messages"], *new_messages]
+    order_id = latest_order_id(messages) or state.get("order_id")
+    pending = state.get("pending_agent")
+    previous_result = state.get("agent_result") or {}
+    if not pending and previous_result.get("status") == "needs_information":
+        pending = previous_result["agent"]  # Also resume checkpoints made before this field existed.
+    if new_messages and pending:
+        # A name/email/order-ID answer belongs to the saved task, not a new intent.
+        decision = {"intent": state.get("intent"), "next_agent": state["next_agent"],
+                    "order_id": order_id, "user_id": state.get("user_id"),
+                    "clarification_question": None}
+        return {**decision, "messages": new_messages, "agent_result": None,
+                "pending_agent": pending, "supervisor_history": [{**decision, "source": "human_resume", "resume_agent": pending}]}
+
+    context = {"order_id": order_id, "user_id": state.get("user_id"),
                "identified_customer_id": customer_id(state)}
     try:
         response = supervisor_llm.invoke([
             SystemMessage(content=supervisor_system_prompt + "\nKnown state: " + json.dumps(context)),
-            *state["messages"], *new_messages,
+            *messages,
         ])
     except Exception as exc:
         update = failure("supervisor", exc, [])
         update["messages"] = new_messages + update["messages"]
-        return update
+        return {**update, "order_id": order_id}
 
     decision = response.model_dump()
-    for field in ("order_id", "user_id"):
-        if decision[field] is None:
-            decision[field] = state.get(field)
+    # Preserve explicit identifiers even if the classifier omits/hallucinates them.
+    decision["order_id"] = order_id
+    decision["user_id"] = response.user_id or state.get("user_id")
     if response.intent == "unsupported":
         update = finish(AgentResult(
             agent="supervisor", status="denied", reason_code="unsupported_request",
@@ -109,19 +137,42 @@ def supervisor_node(state: RetailState) -> dict:
         ))
         update["messages"] = new_messages + update["messages"]
         return {**decision, **update, "supervisor_history": [decision]}
-    if response.clarification_question:
-        new_messages.append(AIMessage(content=response.clarification_question))
+    if response.intent in {"order", "delivery"}:
+        decision["next_agent"] = "order"
+    if decision["next_agent"] == "order":
+        # Required fields are checked in code, not in a model-generated question.
+        decision["clarification_question"] = None if order_id else "What is your order ID?"
+        pending = "order" if not order_id else None
+    else:
+        pending = None
+    if decision["clarification_question"]:
+        new_messages.append(AIMessage(content=decision["clarification_question"]))
     return {**decision, "messages": new_messages, "agent_result": None,
-            "supervisor_history": [decision]}
+            "pending_agent": pending, "supervisor_history": [decision]}
 
 
 def identity_node(state: RetailState) -> dict:
     events = []
     try:
-        lookup = identity_llm.invoke([
-            SystemMessage(content=identity_system_prompt), *state["messages"],
-        ])
-        identity = lookup.model_dump()
+        human_messages = [message for message in state["messages"]
+                          if isinstance(message, HumanMessage) and isinstance(message.content, str)]
+        # A correction replaces earlier lookup inputs instead of combining stale data.
+        inputs = human_messages[-1:] if state.get("pending_agent") == "identity" else human_messages
+        email_message = next((message for message in reversed(inputs) if EMAIL.search(message.content)), None)
+        email = EMAIL.search(email_message.content).group() if email_message else None
+        if email_message and EMAIL.fullmatch(email_message.content.strip(" <>")):
+            identity = {"name": None, "email": email}
+        else:
+            lookup = identity_llm.invoke([
+                SystemMessage(content=identity_system_prompt), *inputs,
+            ])
+            # Explicit email wins over omitted/mistyped model extraction. A model
+            # name must occur in the input, and alongside that email if both exist.
+            name_sources = [email_message] if email_message else inputs
+            name = lookup.name
+            if not name or not any(name.casefold() in message.content.casefold() for message in name_sources):
+                name = None
+            identity = {"name": name, "email": email}
         found = call_tool(identify_customer, identity, events)
         if found["status"] != "matched":
             question = ("Please provide your full name or email address."

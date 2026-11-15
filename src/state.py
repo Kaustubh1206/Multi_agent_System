@@ -32,6 +32,7 @@ class RetailState(TypedDict):
     verified_user_id: NotRequired[str | None]  # Optional application session input.
     next_agent: NotRequired[AgentName]
     clarification_question: NotRequired[str | None]
+    pending_agent: NotRequired[AgentName | None]  # Continue this node after human input.
     identity_state: NotRequired[IdentityState]
     order_state: NotRequired[OrderState]
     policy_state: NotRequired[PolicyState]

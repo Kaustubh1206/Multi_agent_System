@@ -10,6 +10,11 @@ def route_supervisor(state: RetailState) -> str:
         return END  # Unsupported request or a model failure.
     if state.get("clarification_question"):
         return "supervisor"  # Checkpoint first, then pause for the human.
+    pending = state.get("pending_agent")
+    if pending == "order" and not customer_id(state):
+        return "identity"
+    if pending:
+        return pending
     if state["next_agent"] == "order" and not customer_id(state):
         return "identity"
     return state["next_agent"]
