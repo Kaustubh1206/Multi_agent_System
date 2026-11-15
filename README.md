@@ -163,3 +163,43 @@ Tests execute the real graph, checkpointing, and dataset tools with controlled
 model responses. They check routing, interruptions, name/email matching,
 ownership, eligibility boundaries, policy answers, failure categories, trace
 links, and absence of dataset mutations. They do not measure live model quality.
+
+## Version 2 evaluation specification
+
+New assets live under `evaluation/retail-v2/`. The old reference branch was read
+for ideas; its evaluation files were not imported. The existing application and
+`evaluation/simple-retail/` remain unchanged and runnable.
+
+- `customers.json`: 20 fictional profiles, 30 orders, line items, quantities,
+  discounts, shipping facts, membership-at-purchase, and return/refund history.
+  Two customers deliberately share the name Alex Morgan and have different emails.
+- `policy.md`: 10 rules covering identity, ownership, item selection, category
+  windows, Plus membership, exclusions, damage review, refunds, shipments,
+  confirmation, and recovery. Version `retail-v2.0`, fixture date 2026-11-15.
+- `scenarios.json`: 30 development cases with successive human messages, trusted
+  harness context, item/order references, policy rules, expected results/database
+  changes, and controlled fault-injection specifications. Each case is tagged
+  with relevant dimensions from the seven-part evaluation plan.
+
+Start every case with fresh fixture state and a new thread. `context.customer_id`
+is trusted harness input; when null, the conversation must identify the customer.
+`lookup_customer_id` is an evaluator-only expected match, not an input to identity.
+Messages include answers to clarification/confirmation and must be fed in sequence.
+`expected`, `return_check`, and fault injections are evaluator-only data; do not
+put them in model prompts. The partial-return example's 2300 cents is merchandise
+value only, before applicable tax; approval and bank posting remain separate.
+
+**These are acceptance targets, not passing application tests.** Every v2 scenario
+is marked `requires_v2_runtime` and `not_run`. The current tools still expect one
+order per simple customer and do not implement item-level lookup, membership
+windows, review, action confirmation/mutation, retries, or idempotency. Do not point
+`src/tools.py` at these files until that support is added. V2 statuses/reason codes
+are target vocabulary and are not all accepted by the current `AgentResult` schema.
+No DeepEval scoring or model benchmark has been run for this dataset.
+
+The version-2 integrity tests check counts, references, chronology, totals,
+return-rule expectations, and cancellation/recovery consistency:
+
+```bash
+.venv/bin/python -m unittest discover -s tests -p 'test_retail_v2_data.py' -v
+```

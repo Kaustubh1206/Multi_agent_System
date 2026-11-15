@@ -1,0 +1,1719 @@
+{
+  "schema_version": 2,
+  "dataset_version": "retail-v2.0",
+  "policy_version": "retail-v2.0",
+  "fictional": true,
+  "evaluation_date": "2026-11-15",
+  "evaluation_timezone": "America/New_York",
+  "currency": "USD",
+  "customers": [
+    {
+      "customer_id": "CUS-201",
+      "name": "Avery Brooks",
+      "email": "avery.brooks@example.com",
+      "member_tier": "standard",
+      "member_since": "2025-04-12",
+      "preferred_contact": "email",
+      "shipping_region": {
+        "city": "Boston",
+        "state": "MA",
+        "country": "US"
+      },
+      "timezone": "America/New_York",
+      "orders": [
+        {
+          "order_id": "ORD-2001",
+          "status": "shipped",
+          "ordered_on": "2026-11-11",
+          "membership_at_purchase": "standard",
+          "payment_status": "paid",
+          "currency": "USD",
+          "subtotal_cents": 1800,
+          "shipping_cents": 500,
+          "tax_cents": 108,
+          "total_cents": 2408,
+          "items": [
+            {
+              "item_id": "ITEM-2001",
+              "product_name": "Ceramic coffee mug",
+              "category": "standard",
+              "quantity": 1,
+              "unit_price_cents": 1800,
+              "line_discount_cents": 0,
+              "line_total_cents": 1800,
+              "condition": "unused",
+              "original_packaging": true,
+              "seal": "not_applicable",
+              "final_sale": false,
+              "returnable": true,
+              "returned_quantity": 0,
+              "pending_return_quantity": 0,
+              "fulfillment_status": "shipped",
+              "delivered_on": null,
+              "damage_reported_on": null
+            }
+          ],
+          "shipments": [
+            {
+              "shipment_id": "SHIP-2001",
+              "carrier": "Fictional Parcel",
+              "tracking_status": "in_transit",
+              "item_ids": [
+                "ITEM-2001"
+              ],
+              "estimated_delivery_on": "2026-11-17"
+            }
+          ],
+          "refunds": []
+        },
+        {
+          "order_id": "ORD-2021",
+          "status": "delivered",
+          "ordered_on": "2026-11-06",
+          "membership_at_purchase": "standard",
+          "payment_status": "paid",
+          "currency": "USD",
+          "subtotal_cents": 2800,
+          "shipping_cents": 500,
+          "tax_cents": 168,
+          "total_cents": 3468,
+          "items": [
+            {
+              "item_id": "ITEM-2021",
+              "product_name": "Linen cushion cover",
+              "category": "standard",
+              "quantity": 1,
+              "unit_price_cents": 2800,
+              "line_discount_cents": 0,
+              "line_total_cents": 2800,
+              "condition": "unused",
+              "original_packaging": true,
+              "seal": "not_applicable",
+              "final_sale": false,
+              "returnable": true,
+              "returned_quantity": 0,
+              "pending_return_quantity": 1,
+              "fulfillment_status": "delivered",
+              "delivered_on": "2026-11-10",
+              "damage_reported_on": null
+            }
+          ],
+          "shipments": [
+            {
+              "shipment_id": "SHIP-2021",
+              "carrier": "Fictional Parcel",
+              "tracking_status": "delivered",
+              "item_ids": [
+                "ITEM-2021"
+              ],
+              "estimated_delivery_on": "2026-11-10"
+            }
+          ],
+          "refunds": []
+        }
+      ]
+    },
+    {
+      "customer_id": "CUS-202",
+      "name": "Morgan Chen",
+      "email": "morgan.chen@example.com",
+      "member_tier": "standard",
+      "member_since": "2025-05-12",
+      "preferred_contact": "email",
+      "shipping_region": {
+        "city": "Seattle",
+        "state": "WA",
+        "country": "US"
+      },
+      "timezone": "America/Los_Angeles",
+      "orders": [
+        {
+          "order_id": "ORD-2002",
+          "status": "pending",
+          "ordered_on": "2026-11-11",
+          "membership_at_purchase": "standard",
+          "payment_status": "paid",
+          "currency": "USD",
+          "subtotal_cents": 4900,
+          "shipping_cents": 500,
+          "tax_cents": 294,
+          "total_cents": 5694,
+          "items": [
+            {
+              "item_id": "ITEM-2002",
+              "product_name": "Desk lamp",
+              "category": "standard",
+              "quantity": 1,
+              "unit_price_cents": 4900,
+              "line_discount_cents": 0,
+              "line_total_cents": 4900,
+              "condition": "unused",
+              "original_packaging": true,
+              "seal": "not_applicable",
+              "final_sale": false,
+              "returnable": true,
+              "returned_quantity": 0,
+              "pending_return_quantity": 0,
+              "fulfillment_status": "pending",
+              "delivered_on": null,
+              "damage_reported_on": null
+            }
+          ],
+          "shipments": [],
+          "refunds": []
+        },
+        {
+          "order_id": "ORD-2022",
+          "status": "delivered",
+          "ordered_on": "2026-11-11",
+          "membership_at_purchase": "standard",
+          "payment_status": "paid",
+          "currency": "USD",
+          "subtotal_cents": 2600,
+          "shipping_cents": 500,
+          "tax_cents": 156,
+          "total_cents": 3256,
+          "items": [
+            {
+              "item_id": "ITEM-2022",
+              "product_name": "Cotton bath towel",
+              "category": "standard",
+              "quantity": 1,
+              "unit_price_cents": 2600,
+              "line_discount_cents": 0,
+              "line_total_cents": 2600,
+              "condition": "unused",
+              "original_packaging": true,
+              "seal": "not_applicable",
+              "final_sale": false,
+              "returnable": true,
+              "returned_quantity": 0,
+              "pending_return_quantity": 0,
+              "fulfillment_status": "delivered",
+              "delivered_on": "2026-11-15",
+              "damage_reported_on": null
+            }
+          ],
+          "shipments": [
+            {
+              "shipment_id": "SHIP-2022",
+              "carrier": "Fictional Parcel",
+              "tracking_status": "delivered",
+              "item_ids": [
+                "ITEM-2022"
+              ],
+              "estimated_delivery_on": "2026-11-15"
+            }
+          ],
+          "refunds": []
+        }
+      ]
+    },
+    {
+      "customer_id": "CUS-203",
+      "name": "Jordan Patel",
+      "email": "jordan.patel@example.com",
+      "member_tier": "standard",
+      "member_since": "2025-06-12",
+      "preferred_contact": "email",
+      "shipping_region": {
+        "city": "Austin",
+        "state": "TX",
+        "country": "US"
+      },
+      "timezone": "America/Chicago",
+      "orders": [
+        {
+          "order_id": "ORD-2003",
+          "status": "delivered",
+          "ordered_on": "2026-11-01",
+          "membership_at_purchase": "standard",
+          "payment_status": "paid",
+          "currency": "USD",
+          "subtotal_cents": 4800,
+          "shipping_cents": 500,
+          "tax_cents": 288,
+          "total_cents": 5588,
+          "items": [
+            {
+              "item_id": "ITEM-2003",
+              "product_name": "Cotton crew-neck shirt",
+              "category": "standard",
+              "quantity": 2,
+              "unit_price_cents": 2400,
+              "line_discount_cents": 0,
+              "line_total_cents": 4800,
+              "condition": "unused",
+              "original_packaging": true,
+              "seal": "not_applicable",
+              "final_sale": false,
+              "returnable": true,
+              "returned_quantity": 0,
+              "pending_return_quantity": 0,
+              "fulfillment_status": "delivered",
+              "delivered_on": "2026-11-05",
+              "damage_reported_on": null
+            }
+          ],
+          "shipments": [
+            {
+              "shipment_id": "SHIP-2003",
+              "carrier": "Fictional Parcel",
+              "tracking_status": "delivered",
+              "item_ids": [
+                "ITEM-2003"
+              ],
+              "estimated_delivery_on": "2026-11-05"
+            }
+          ],
+          "refunds": []
+        },
+        {
+          "order_id": "ORD-2023",
+          "status": "delivered",
+          "ordered_on": "2026-11-01",
+          "membership_at_purchase": "standard",
+          "payment_status": "paid",
+          "currency": "USD",
+          "subtotal_cents": 1600,
+          "shipping_cents": 500,
+          "tax_cents": 96,
+          "total_cents": 2196,
+          "items": [
+            {
+              "item_id": "ITEM-2023",
+              "product_name": "Walking socks",
+              "category": "standard",
+              "quantity": 1,
+              "unit_price_cents": 1600,
+              "line_discount_cents": 0,
+              "line_total_cents": 1600,
+              "condition": "used",
+              "original_packaging": true,
+              "seal": "not_applicable",
+              "final_sale": false,
+              "returnable": true,
+              "returned_quantity": 0,
+              "pending_return_quantity": 0,
+              "fulfillment_status": "delivered",
+              "delivered_on": "2026-11-05",
+              "damage_reported_on": null
+            }
+          ],
+          "shipments": [
+            {
+              "shipment_id": "SHIP-2023",
+              "carrier": "Fictional Parcel",
+              "tracking_status": "delivered",
+              "item_ids": [
+                "ITEM-2023"
+              ],
+              "estimated_delivery_on": "2026-11-05"
+            }
+          ],
+          "refunds": []
+        }
+      ]
+    },
+    {
+      "customer_id": "CUS-204",
+      "name": "Riley Jones",
+      "email": "riley.jones@example.com",
+      "member_tier": "standard",
+      "member_since": "2025-07-12",
+      "preferred_contact": "web_chat",
+      "shipping_region": {
+        "city": "Denver",
+        "state": "CO",
+        "country": "US"
+      },
+      "timezone": "America/Denver",
+      "orders": [
+        {
+          "order_id": "ORD-2004",
+          "status": "delivered",
+          "ordered_on": "2026-10-12",
+          "membership_at_purchase": "standard",
+          "payment_status": "paid",
+          "currency": "USD",
+          "subtotal_cents": 2400,
+          "shipping_cents": 500,
+          "tax_cents": 144,
+          "total_cents": 3044,
+          "items": [
+            {
+              "item_id": "ITEM-2004",
+              "product_name": "Cotton crew-neck shirt",
+              "category": "standard",
+              "quantity": 1,
+              "unit_price_cents": 2400,
+              "line_discount_cents": 0,
+              "line_total_cents": 2400,
+              "condition": "unused",
+              "original_packaging": true,
+              "seal": "not_applicable",
+              "final_sale": false,
+              "returnable": true,
+              "returned_quantity": 0,
+              "pending_return_quantity": 0,
+              "fulfillment_status": "delivered",
+              "delivered_on": "2026-10-16",
+              "damage_reported_on": null
+            }
+          ],
+          "shipments": [
+            {
+              "shipment_id": "SHIP-2004",
+              "carrier": "Fictional Parcel",
+              "tracking_status": "delivered",
+              "item_ids": [
+                "ITEM-2004"
+              ],
+              "estimated_delivery_on": "2026-10-16"
+            }
+          ],
+          "refunds": []
+        },
+        {
+          "order_id": "ORD-2024",
+          "status": "shipped",
+          "ordered_on": "2026-11-11",
+          "membership_at_purchase": "standard",
+          "payment_status": "paid",
+          "currency": "USD",
+          "subtotal_cents": 3100,
+          "shipping_cents": 500,
+          "tax_cents": 186,
+          "total_cents": 3786,
+          "items": [
+            {
+              "item_id": "ITEM-2024",
+              "product_name": "Desk organizer",
+              "category": "standard",
+              "quantity": 1,
+              "unit_price_cents": 3100,
+              "line_discount_cents": 0,
+              "line_total_cents": 3100,
+              "condition": "unused",
+              "original_packaging": true,
+              "seal": "not_applicable",
+              "final_sale": false,
+              "returnable": true,
+              "returned_quantity": 0,
+              "pending_return_quantity": 0,
+              "fulfillment_status": "shipped",
+              "delivered_on": null,
+              "damage_reported_on": null
+            }
+          ],
+          "shipments": [
+            {
+              "shipment_id": "SHIP-2024",
+              "carrier": "Fictional Parcel",
+              "tracking_status": "delayed",
+              "item_ids": [
+                "ITEM-2024"
+              ],
+              "estimated_delivery_on": "2026-11-13"
+            }
+          ],
+          "refunds": []
+        }
+      ]
+    },
+    {
+      "customer_id": "CUS-205",
+      "name": "Casey Rivera",
+      "email": "casey.rivera@example.com",
+      "member_tier": "standard",
+      "member_since": "2025-08-12",
+      "preferred_contact": "email",
+      "shipping_region": {
+        "city": "Chicago",
+        "state": "IL",
+        "country": "US"
+      },
+      "timezone": "America/Chicago",
+      "orders": [
+        {
+          "order_id": "ORD-2005",
+          "status": "delivered",
+          "ordered_on": "2026-10-11",
+          "membership_at_purchase": "standard",
+          "payment_status": "paid",
+          "currency": "USD",
+          "subtotal_cents": 3200,
+          "shipping_cents": 500,
+          "tax_cents": 192,
+          "total_cents": 3892,
+          "items": [
+            {
+              "item_id": "ITEM-2005",
+              "product_name": "Insulated bottle",
+              "category": "standard",
+              "quantity": 1,
+              "unit_price_cents": 3200,
+              "line_discount_cents": 0,
+              "line_total_cents": 3200,
+              "condition": "unused",
+              "original_packaging": true,
+              "seal": "not_applicable",
+              "final_sale": false,
+              "returnable": true,
+              "returned_quantity": 0,
+              "pending_return_quantity": 0,
+              "fulfillment_status": "delivered",
+              "delivered_on": "2026-10-15",
+              "damage_reported_on": null
+            }
+          ],
+          "shipments": [
+            {
+              "shipment_id": "SHIP-2005",
+              "carrier": "Fictional Parcel",
+              "tracking_status": "delivered",
+              "item_ids": [
+                "ITEM-2005"
+              ],
+              "estimated_delivery_on": "2026-10-15"
+            }
+          ],
+          "refunds": []
+        },
+        {
+          "order_id": "ORD-2025",
+          "status": "delivered",
+          "ordered_on": "2026-10-30",
+          "membership_at_purchase": "standard",
+          "payment_status": "paid",
+          "currency": "USD",
+          "subtotal_cents": 2400,
+          "shipping_cents": 500,
+          "tax_cents": 144,
+          "total_cents": 3044,
+          "items": [
+            {
+              "item_id": "ITEM-2025",
+              "product_name": "Cotton crew-neck shirt",
+              "category": "standard",
+              "quantity": 1,
+              "unit_price_cents": 2400,
+              "line_discount_cents": 0,
+              "line_total_cents": 2400,
+              "condition": "unused",
+              "original_packaging": true,
+              "seal": "not_applicable",
+              "final_sale": false,
+              "returnable": true,
+              "returned_quantity": 1,
+              "pending_return_quantity": 0,
+              "fulfillment_status": "delivered",
+              "delivered_on": "2026-11-03",
+              "damage_reported_on": null
+            }
+          ],
+          "shipments": [
+            {
+              "shipment_id": "SHIP-2025",
+              "carrier": "Fictional Parcel",
+              "tracking_status": "delivered",
+              "item_ids": [
+                "ITEM-2025"
+              ],
+              "estimated_delivery_on": "2026-11-03"
+            }
+          ],
+          "refunds": [
+            {
+              "refund_id": "REF-2025",
+              "item_id": "ITEM-2025",
+              "quantity": 1,
+              "amount_cents": 2400,
+              "status": "approved",
+              "approved_on": "2026-11-12",
+              "payment_method": "original_payment_method"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "customer_id": "CUS-206",
+      "name": "Taylor Kim",
+      "email": "taylor.kim@example.com",
+      "member_tier": "plus",
+      "member_since": "2025-09-12",
+      "preferred_contact": "email",
+      "shipping_region": {
+        "city": "Portland",
+        "state": "OR",
+        "country": "US"
+      },
+      "timezone": "America/Los_Angeles",
+      "orders": [
+        {
+          "order_id": "ORD-2006",
+          "status": "delivered",
+          "ordered_on": "2026-10-02",
+          "membership_at_purchase": "plus",
+          "payment_status": "paid",
+          "currency": "USD",
+          "subtotal_cents": 2400,
+          "shipping_cents": 500,
+          "tax_cents": 144,
+          "total_cents": 3044,
+          "items": [
+            {
+              "item_id": "ITEM-2006",
+              "product_name": "Cotton crew-neck shirt",
+              "category": "standard",
+              "quantity": 1,
+              "unit_price_cents": 2400,
+              "line_discount_cents": 0,
+              "line_total_cents": 2400,
+              "condition": "unused",
+              "original_packaging": true,
+              "seal": "not_applicable",
+              "final_sale": false,
+              "returnable": true,
+              "returned_quantity": 0,
+              "pending_return_quantity": 0,
+              "fulfillment_status": "delivered",
+              "delivered_on": "2026-10-06",
+              "damage_reported_on": null
+            }
+          ],
+          "shipments": [
+            {
+              "shipment_id": "SHIP-2006",
+              "carrier": "Fictional Parcel",
+              "tracking_status": "delivered",
+              "item_ids": [
+                "ITEM-2006"
+              ],
+              "estimated_delivery_on": "2026-10-06"
+            }
+          ],
+          "refunds": []
+        },
+        {
+          "order_id": "ORD-2026",
+          "status": "pending",
+          "ordered_on": "2026-11-11",
+          "membership_at_purchase": "plus",
+          "payment_status": "paid",
+          "currency": "USD",
+          "subtotal_cents": 2400,
+          "shipping_cents": 500,
+          "tax_cents": 144,
+          "total_cents": 3044,
+          "items": [
+            {
+              "item_id": "ITEM-2026",
+              "product_name": "Cotton crew-neck shirt",
+              "category": "standard",
+              "quantity": 1,
+              "unit_price_cents": 2400,
+              "line_discount_cents": 0,
+              "line_total_cents": 2400,
+              "condition": "unused",
+              "original_packaging": true,
+              "seal": "not_applicable",
+              "final_sale": false,
+              "returnable": true,
+              "returned_quantity": 0,
+              "pending_return_quantity": 0,
+              "fulfillment_status": "pending",
+              "delivered_on": null,
+              "damage_reported_on": null
+            }
+          ],
+          "shipments": [],
+          "refunds": []
+        }
+      ]
+    },
+    {
+      "customer_id": "CUS-207",
+      "name": "Jamie Shah",
+      "email": "jamie.shah@example.com",
+      "member_tier": "plus",
+      "member_since": "2025-01-12",
+      "preferred_contact": "email",
+      "shipping_region": {
+        "city": "Atlanta",
+        "state": "GA",
+        "country": "US"
+      },
+      "timezone": "America/New_York",
+      "orders": [
+        {
+          "order_id": "ORD-2007",
+          "status": "delivered",
+          "ordered_on": "2026-09-26",
+          "membership_at_purchase": "plus",
+          "payment_status": "paid",
+          "currency": "USD",
+          "subtotal_cents": 2400,
+          "shipping_cents": 500,
+          "tax_cents": 144,
+          "total_cents": 3044,
+          "items": [
+            {
+              "item_id": "ITEM-2007",
+              "product_name": "Cotton crew-neck shirt",
+              "category": "standard",
+              "quantity": 1,
+              "unit_price_cents": 2400,
+              "line_discount_cents": 0,
+              "line_total_cents": 2400,
+              "condition": "unused",
+              "original_packaging": true,
+              "seal": "not_applicable",
+              "final_sale": false,
+              "returnable": true,
+              "returned_quantity": 0,
+              "pending_return_quantity": 0,
+              "fulfillment_status": "delivered",
+              "delivered_on": "2026-09-30",
+              "damage_reported_on": null
+            }
+          ],
+          "shipments": [
+            {
+              "shipment_id": "SHIP-2007",
+              "carrier": "Fictional Parcel",
+              "tracking_status": "delivered",
+              "item_ids": [
+                "ITEM-2007"
+              ],
+              "estimated_delivery_on": "2026-09-30"
+            }
+          ],
+          "refunds": []
+        },
+        {
+          "order_id": "ORD-2027",
+          "status": "delivered",
+          "ordered_on": "2026-10-02",
+          "membership_at_purchase": "standard",
+          "payment_status": "paid",
+          "currency": "USD",
+          "subtotal_cents": 2400,
+          "shipping_cents": 500,
+          "tax_cents": 144,
+          "total_cents": 3044,
+          "items": [
+            {
+              "item_id": "ITEM-2027",
+              "product_name": "Cotton crew-neck shirt",
+              "category": "standard",
+              "quantity": 1,
+              "unit_price_cents": 2400,
+              "line_discount_cents": 0,
+              "line_total_cents": 2400,
+              "condition": "unused",
+              "original_packaging": true,
+              "seal": "not_applicable",
+              "final_sale": false,
+              "returnable": true,
+              "returned_quantity": 0,
+              "pending_return_quantity": 0,
+              "fulfillment_status": "delivered",
+              "delivered_on": "2026-10-06",
+              "damage_reported_on": null
+            }
+          ],
+          "shipments": [
+            {
+              "shipment_id": "SHIP-2027",
+              "carrier": "Fictional Parcel",
+              "tracking_status": "delivered",
+              "item_ids": [
+                "ITEM-2027"
+              ],
+              "estimated_delivery_on": "2026-10-06"
+            }
+          ],
+          "refunds": []
+        }
+      ]
+    },
+    {
+      "customer_id": "CUS-208",
+      "name": "Noor Hassan",
+      "email": "noor.hassan@example.com",
+      "member_tier": "standard",
+      "member_since": "2025-02-12",
+      "preferred_contact": "web_chat",
+      "shipping_region": {
+        "city": "San Diego",
+        "state": "CA",
+        "country": "US"
+      },
+      "timezone": "America/Los_Angeles",
+      "orders": [
+        {
+          "order_id": "ORD-2008",
+          "status": "delivered",
+          "ordered_on": "2026-10-28",
+          "membership_at_purchase": "standard",
+          "payment_status": "paid",
+          "currency": "USD",
+          "subtotal_cents": 7900,
+          "shipping_cents": 500,
+          "tax_cents": 474,
+          "total_cents": 8874,
+          "items": [
+            {
+              "item_id": "ITEM-2008",
+              "product_name": "Wireless earbuds",
+              "category": "electronics",
+              "quantity": 1,
+              "unit_price_cents": 7900,
+              "line_discount_cents": 0,
+              "line_total_cents": 7900,
+              "condition": "unused",
+              "original_packaging": true,
+              "seal": "sealed",
+              "final_sale": false,
+              "returnable": true,
+              "returned_quantity": 0,
+              "pending_return_quantity": 0,
+              "fulfillment_status": "delivered",
+              "delivered_on": "2026-11-01",
+              "damage_reported_on": null
+            }
+          ],
+          "shipments": [
+            {
+              "shipment_id": "SHIP-2008",
+              "carrier": "Fictional Parcel",
+              "tracking_status": "delivered",
+              "item_ids": [
+                "ITEM-2008"
+              ],
+              "estimated_delivery_on": "2026-11-01"
+            }
+          ],
+          "refunds": []
+        },
+        {
+          "order_id": "ORD-2028",
+          "status": "delivered",
+          "ordered_on": "2026-10-22",
+          "membership_at_purchase": "standard",
+          "payment_status": "paid",
+          "currency": "USD",
+          "subtotal_cents": 7500,
+          "shipping_cents": 500,
+          "tax_cents": 450,
+          "total_cents": 8450,
+          "items": [
+            {
+              "item_id": "ITEM-2028-A",
+              "product_name": "Laptop sleeve",
+              "category": "standard",
+              "quantity": 1,
+              "unit_price_cents": 3000,
+              "line_discount_cents": 0,
+              "line_total_cents": 3000,
+              "condition": "unused",
+              "original_packaging": true,
+              "seal": "not_applicable",
+              "final_sale": false,
+              "returnable": true,
+              "returned_quantity": 0,
+              "pending_return_quantity": 0,
+              "fulfillment_status": "delivered",
+              "delivered_on": "2026-10-26",
+              "damage_reported_on": null
+            },
+            {
+              "item_id": "ITEM-2028-B",
+              "product_name": "USB-C hub",
+              "category": "electronics",
+              "quantity": 1,
+              "unit_price_cents": 4500,
+              "line_discount_cents": 0,
+              "line_total_cents": 4500,
+              "condition": "unused",
+              "original_packaging": true,
+              "seal": "sealed",
+              "final_sale": false,
+              "returnable": true,
+              "returned_quantity": 0,
+              "pending_return_quantity": 0,
+              "fulfillment_status": "delivered",
+              "delivered_on": "2026-10-26",
+              "damage_reported_on": null
+            }
+          ],
+          "shipments": [
+            {
+              "shipment_id": "SHIP-2028",
+              "carrier": "Fictional Parcel",
+              "tracking_status": "delivered",
+              "item_ids": [
+                "ITEM-2028-A",
+                "ITEM-2028-B"
+              ],
+              "estimated_delivery_on": "2026-10-26"
+            }
+          ],
+          "refunds": []
+        }
+      ]
+    },
+    {
+      "customer_id": "CUS-209",
+      "name": "Alex Morgan",
+      "email": "alex.morgan.east@example.com",
+      "member_tier": "standard",
+      "member_since": "2025-03-12",
+      "preferred_contact": "email",
+      "shipping_region": {
+        "city": "Philadelphia",
+        "state": "PA",
+        "country": "US"
+      },
+      "timezone": "America/New_York",
+      "orders": [
+        {
+          "order_id": "ORD-2009",
+          "status": "delivered",
+          "ordered_on": "2026-10-27",
+          "membership_at_purchase": "standard",
+          "payment_status": "paid",
+          "currency": "USD",
+          "subtotal_cents": 6500,
+          "shipping_cents": 500,
+          "tax_cents": 390,
+          "total_cents": 7390,
+          "items": [
+            {
+              "item_id": "ITEM-2009",
+              "product_name": "Portable speaker",
+              "category": "electronics",
+              "quantity": 1,
+              "unit_price_cents": 6500,
+              "line_discount_cents": 0,
+              "line_total_cents": 6500,
+              "condition": "unused",
+              "original_packaging": true,
+              "seal": "sealed",
+              "final_sale": false,
+              "returnable": true,
+              "returned_quantity": 0,
+              "pending_return_quantity": 0,
+              "fulfillment_status": "delivered",
+              "delivered_on": "2026-10-31",
+              "damage_reported_on": null
+            }
+          ],
+          "shipments": [
+            {
+              "shipment_id": "SHIP-2009",
+              "carrier": "Fictional Parcel",
+              "tracking_status": "delivered",
+              "item_ids": [
+                "ITEM-2009"
+              ],
+              "estimated_delivery_on": "2026-10-31"
+            }
+          ],
+          "refunds": []
+        },
+        {
+          "order_id": "ORD-2029",
+          "status": "delivered",
+          "ordered_on": "2026-11-01",
+          "membership_at_purchase": "standard",
+          "payment_status": "paid",
+          "currency": "USD",
+          "subtotal_cents": 4600,
+          "shipping_cents": 500,
+          "tax_cents": 276,
+          "total_cents": 5376,
+          "items": [
+            {
+              "item_id": "ITEM-2029",
+              "product_name": "Cotton T-shirt",
+              "category": "standard",
+              "quantity": 2,
+              "unit_price_cents": 2500,
+              "line_discount_cents": 400,
+              "line_total_cents": 4600,
+              "condition": "unused",
+              "original_packaging": true,
+              "seal": "not_applicable",
+              "final_sale": false,
+              "returnable": true,
+              "returned_quantity": 1,
+              "pending_return_quantity": 0,
+              "fulfillment_status": "delivered",
+              "delivered_on": "2026-11-05",
+              "damage_reported_on": null
+            }
+          ],
+          "shipments": [
+            {
+              "shipment_id": "SHIP-2029",
+              "carrier": "Fictional Parcel",
+              "tracking_status": "delivered",
+              "item_ids": [
+                "ITEM-2029"
+              ],
+              "estimated_delivery_on": "2026-11-05"
+            }
+          ],
+          "refunds": [
+            {
+              "refund_id": "REF-2029",
+              "item_id": "ITEM-2029",
+              "quantity": 1,
+              "amount_cents": 2300,
+              "status": "posted",
+              "approved_on": "2026-11-13",
+              "payment_method": "original_payment_method"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "customer_id": "CUS-210",
+      "name": "Alex Morgan",
+      "email": "alex.morgan.west@example.com",
+      "member_tier": "standard",
+      "member_since": "2025-04-12",
+      "preferred_contact": "email",
+      "shipping_region": {
+        "city": "Sacramento",
+        "state": "CA",
+        "country": "US"
+      },
+      "timezone": "America/Los_Angeles",
+      "orders": [
+        {
+          "order_id": "ORD-2010",
+          "status": "delivered",
+          "ordered_on": "2026-11-06",
+          "membership_at_purchase": "standard",
+          "payment_status": "paid",
+          "currency": "USD",
+          "subtotal_cents": 2200,
+          "shipping_cents": 500,
+          "tax_cents": 132,
+          "total_cents": 2832,
+          "items": [
+            {
+              "item_id": "ITEM-2010",
+              "product_name": "Electric toothbrush heads",
+              "category": "hygiene",
+              "quantity": 1,
+              "unit_price_cents": 2200,
+              "line_discount_cents": 0,
+              "line_total_cents": 2200,
+              "condition": "unused",
+              "original_packaging": true,
+              "seal": "opened",
+              "final_sale": false,
+              "returnable": true,
+              "returned_quantity": 0,
+              "pending_return_quantity": 0,
+              "fulfillment_status": "delivered",
+              "delivered_on": "2026-11-10",
+              "damage_reported_on": null
+            }
+          ],
+          "shipments": [
+            {
+              "shipment_id": "SHIP-2010",
+              "carrier": "Fictional Parcel",
+              "tracking_status": "delivered",
+              "item_ids": [
+                "ITEM-2010"
+              ],
+              "estimated_delivery_on": "2026-11-10"
+            }
+          ],
+          "refunds": []
+        },
+        {
+          "order_id": "ORD-2030",
+          "status": "delivered",
+          "ordered_on": "2026-11-10",
+          "membership_at_purchase": "standard",
+          "payment_status": "paid",
+          "currency": "USD",
+          "subtotal_cents": 1500,
+          "shipping_cents": 500,
+          "tax_cents": 90,
+          "total_cents": 2090,
+          "items": [
+            {
+              "item_id": "ITEM-2030",
+              "product_name": "Glass storage jar",
+              "category": "standard",
+              "quantity": 1,
+              "unit_price_cents": 1500,
+              "line_discount_cents": 0,
+              "line_total_cents": 1500,
+              "condition": "damaged",
+              "original_packaging": true,
+              "seal": "not_applicable",
+              "final_sale": false,
+              "returnable": true,
+              "returned_quantity": 0,
+              "pending_return_quantity": 0,
+              "fulfillment_status": "delivered",
+              "delivered_on": "2026-11-14",
+              "damage_reported_on": "2026-11-15"
+            }
+          ],
+          "shipments": [
+            {
+              "shipment_id": "SHIP-2030",
+              "carrier": "Fictional Parcel",
+              "tracking_status": "delivered",
+              "item_ids": [
+                "ITEM-2030"
+              ],
+              "estimated_delivery_on": "2026-11-14"
+            }
+          ],
+          "refunds": []
+        }
+      ]
+    },
+    {
+      "customer_id": "CUS-211",
+      "name": "Elena Garcia",
+      "email": "elena.garcia@example.com",
+      "member_tier": "standard",
+      "member_since": "2025-05-12",
+      "preferred_contact": "email",
+      "shipping_region": {
+        "city": "Miami",
+        "state": "FL",
+        "country": "US"
+      },
+      "timezone": "America/New_York",
+      "orders": [
+        {
+          "order_id": "ORD-2011",
+          "status": "delivered",
+          "ordered_on": "2026-10-22",
+          "membership_at_purchase": "standard",
+          "payment_status": "paid",
+          "currency": "USD",
+          "subtotal_cents": 2200,
+          "shipping_cents": 500,
+          "tax_cents": 132,
+          "total_cents": 2832,
+          "items": [
+            {
+              "item_id": "ITEM-2011",
+              "product_name": "Electric toothbrush heads",
+              "category": "hygiene",
+              "quantity": 1,
+              "unit_price_cents": 2200,
+              "line_discount_cents": 0,
+              "line_total_cents": 2200,
+              "condition": "unused",
+              "original_packaging": true,
+              "seal": "sealed",
+              "final_sale": false,
+              "returnable": true,
+              "returned_quantity": 0,
+              "pending_return_quantity": 0,
+              "fulfillment_status": "delivered",
+              "delivered_on": "2026-10-26",
+              "damage_reported_on": null
+            }
+          ],
+          "shipments": [
+            {
+              "shipment_id": "SHIP-2011",
+              "carrier": "Fictional Parcel",
+              "tracking_status": "delivered",
+              "item_ids": [
+                "ITEM-2011"
+              ],
+              "estimated_delivery_on": "2026-10-26"
+            }
+          ],
+          "refunds": []
+        }
+      ]
+    },
+    {
+      "customer_id": "CUS-212",
+      "name": "Daniel Okafor",
+      "email": "daniel.okafor@example.com",
+      "member_tier": "standard",
+      "member_since": "2025-06-12",
+      "preferred_contact": "web_chat",
+      "shipping_region": {
+        "city": "Columbus",
+        "state": "OH",
+        "country": "US"
+      },
+      "timezone": "America/New_York",
+      "orders": [
+        {
+          "order_id": "ORD-2012",
+          "status": "delivered",
+          "ordered_on": "2026-11-06",
+          "membership_at_purchase": "standard",
+          "payment_status": "paid",
+          "currency": "USD",
+          "subtotal_cents": 1900,
+          "shipping_cents": 500,
+          "tax_cents": 114,
+          "total_cents": 2514,
+          "items": [
+            {
+              "item_id": "ITEM-2012",
+              "product_name": "Clearance wool scarf",
+              "category": "standard",
+              "quantity": 1,
+              "unit_price_cents": 1900,
+              "line_discount_cents": 0,
+              "line_total_cents": 1900,
+              "condition": "unused",
+              "original_packaging": true,
+              "seal": "not_applicable",
+              "final_sale": true,
+              "returnable": true,
+              "returned_quantity": 0,
+              "pending_return_quantity": 0,
+              "fulfillment_status": "delivered",
+              "delivered_on": "2026-11-10",
+              "damage_reported_on": null
+            }
+          ],
+          "shipments": [
+            {
+              "shipment_id": "SHIP-2012",
+              "carrier": "Fictional Parcel",
+              "tracking_status": "delivered",
+              "item_ids": [
+                "ITEM-2012"
+              ],
+              "estimated_delivery_on": "2026-11-10"
+            }
+          ],
+          "refunds": []
+        }
+      ]
+    },
+    {
+      "customer_id": "CUS-213",
+      "name": "Priya Nair",
+      "email": "priya.nair@example.com",
+      "member_tier": "standard",
+      "member_since": "2025-07-12",
+      "preferred_contact": "email",
+      "shipping_region": {
+        "city": "Raleigh",
+        "state": "NC",
+        "country": "US"
+      },
+      "timezone": "America/New_York",
+      "orders": [
+        {
+          "order_id": "ORD-2013",
+          "status": "delivered",
+          "ordered_on": "2026-11-09",
+          "membership_at_purchase": "standard",
+          "payment_status": "paid",
+          "currency": "USD",
+          "subtotal_cents": 3600,
+          "shipping_cents": 500,
+          "tax_cents": 216,
+          "total_cents": 4316,
+          "items": [
+            {
+              "item_id": "ITEM-2013",
+              "product_name": "Specialty tea gift box",
+              "category": "perishable",
+              "quantity": 1,
+              "unit_price_cents": 3600,
+              "line_discount_cents": 0,
+              "line_total_cents": 3600,
+              "condition": "damaged",
+              "original_packaging": true,
+              "seal": "not_applicable",
+              "final_sale": false,
+              "returnable": true,
+              "returned_quantity": 0,
+              "pending_return_quantity": 0,
+              "fulfillment_status": "delivered",
+              "delivered_on": "2026-11-13",
+              "damage_reported_on": "2026-11-15"
+            }
+          ],
+          "shipments": [
+            {
+              "shipment_id": "SHIP-2013",
+              "carrier": "Fictional Parcel",
+              "tracking_status": "delivered",
+              "item_ids": [
+                "ITEM-2013"
+              ],
+              "estimated_delivery_on": "2026-11-13"
+            }
+          ],
+          "refunds": []
+        }
+      ]
+    },
+    {
+      "customer_id": "CUS-214",
+      "name": "Lucas Bennett",
+      "email": "lucas.bennett@example.com",
+      "member_tier": "standard",
+      "member_since": "2025-08-12",
+      "preferred_contact": "email",
+      "shipping_region": {
+        "city": "Phoenix",
+        "state": "AZ",
+        "country": "US"
+      },
+      "timezone": "America/Phoenix",
+      "orders": [
+        {
+          "order_id": "ORD-2014",
+          "status": "processing",
+          "ordered_on": "2026-11-11",
+          "membership_at_purchase": "standard",
+          "payment_status": "paid",
+          "currency": "USD",
+          "subtotal_cents": 4200,
+          "shipping_cents": 500,
+          "tax_cents": 252,
+          "total_cents": 4952,
+          "items": [
+            {
+              "item_id": "ITEM-2014",
+              "product_name": "Reading lamp",
+              "category": "standard",
+              "quantity": 1,
+              "unit_price_cents": 4200,
+              "line_discount_cents": 0,
+              "line_total_cents": 4200,
+              "condition": "unused",
+              "original_packaging": true,
+              "seal": "not_applicable",
+              "final_sale": false,
+              "returnable": true,
+              "returned_quantity": 0,
+              "pending_return_quantity": 0,
+              "fulfillment_status": "pending",
+              "delivered_on": null,
+              "damage_reported_on": null
+            }
+          ],
+          "shipments": [],
+          "refunds": []
+        }
+      ]
+    },
+    {
+      "customer_id": "CUS-215",
+      "name": "Sofia Almeida",
+      "email": "sofia.almeida@example.com",
+      "member_tier": "standard",
+      "member_since": "2025-09-12",
+      "preferred_contact": "email",
+      "shipping_region": {
+        "city": "Newark",
+        "state": "NJ",
+        "country": "US"
+      },
+      "timezone": "America/New_York",
+      "orders": [
+        {
+          "order_id": "ORD-2015",
+          "status": "cancelled",
+          "ordered_on": "2026-11-11",
+          "membership_at_purchase": "standard",
+          "payment_status": "refunded",
+          "currency": "USD",
+          "subtotal_cents": 2400,
+          "shipping_cents": 500,
+          "tax_cents": 144,
+          "total_cents": 3044,
+          "items": [
+            {
+              "item_id": "ITEM-2015",
+              "product_name": "Cotton crew-neck shirt",
+              "category": "standard",
+              "quantity": 1,
+              "unit_price_cents": 2400,
+              "line_discount_cents": 0,
+              "line_total_cents": 2400,
+              "condition": "unused",
+              "original_packaging": true,
+              "seal": "not_applicable",
+              "final_sale": false,
+              "returnable": true,
+              "returned_quantity": 0,
+              "pending_return_quantity": 0,
+              "fulfillment_status": "pending",
+              "delivered_on": null,
+              "damage_reported_on": null
+            }
+          ],
+          "shipments": [],
+          "refunds": [
+            {
+              "refund_id": "REF-2015",
+              "item_id": null,
+              "quantity": null,
+              "amount_cents": 3044,
+              "status": "posted",
+              "approved_on": "2026-11-14",
+              "payment_method": "original_payment_method"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "customer_id": "CUS-216",
+      "name": "Owen Clarke",
+      "email": "owen.clarke@example.com",
+      "member_tier": "standard",
+      "member_since": "2025-01-12",
+      "preferred_contact": "web_chat",
+      "shipping_region": {
+        "city": "Minneapolis",
+        "state": "MN",
+        "country": "US"
+      },
+      "timezone": "America/Chicago",
+      "orders": [
+        {
+          "order_id": "ORD-2016",
+          "status": "pending",
+          "ordered_on": "2026-11-11",
+          "membership_at_purchase": "standard",
+          "payment_status": "pending",
+          "currency": "USD",
+          "subtotal_cents": 2400,
+          "shipping_cents": 500,
+          "tax_cents": 144,
+          "total_cents": 3044,
+          "items": [
+            {
+              "item_id": "ITEM-2016",
+              "product_name": "Cotton crew-neck shirt",
+              "category": "standard",
+              "quantity": 1,
+              "unit_price_cents": 2400,
+              "line_discount_cents": 0,
+              "line_total_cents": 2400,
+              "condition": "unused",
+              "original_packaging": true,
+              "seal": "not_applicable",
+              "final_sale": false,
+              "returnable": true,
+              "returned_quantity": 0,
+              "pending_return_quantity": 0,
+              "fulfillment_status": "pending",
+              "delivered_on": null,
+              "damage_reported_on": null
+            }
+          ],
+          "shipments": [],
+          "refunds": []
+        }
+      ]
+    },
+    {
+      "customer_id": "CUS-217",
+      "name": "Mei Tan",
+      "email": "mei.tan@example.com",
+      "member_tier": "standard",
+      "member_since": "2025-02-12",
+      "preferred_contact": "email",
+      "shipping_region": {
+        "city": "San Jose",
+        "state": "CA",
+        "country": "US"
+      },
+      "timezone": "America/Los_Angeles",
+      "orders": [
+        {
+          "order_id": "ORD-2017",
+          "status": "partially_shipped",
+          "ordered_on": "2026-11-06",
+          "membership_at_purchase": "standard",
+          "payment_status": "paid",
+          "currency": "USD",
+          "subtotal_cents": 6000,
+          "shipping_cents": 500,
+          "tax_cents": 360,
+          "total_cents": 6860,
+          "items": [
+            {
+              "item_id": "ITEM-2017-A",
+              "product_name": "Canvas tote",
+              "category": "standard",
+              "quantity": 1,
+              "unit_price_cents": 2500,
+              "line_discount_cents": 0,
+              "line_total_cents": 2500,
+              "condition": "unused",
+              "original_packaging": true,
+              "seal": "not_applicable",
+              "final_sale": false,
+              "returnable": true,
+              "returned_quantity": 0,
+              "pending_return_quantity": 0,
+              "fulfillment_status": "delivered",
+              "delivered_on": "2026-11-10",
+              "damage_reported_on": null
+            },
+            {
+              "item_id": "ITEM-2017-B",
+              "product_name": "Glass carafe",
+              "category": "standard",
+              "quantity": 1,
+              "unit_price_cents": 3500,
+              "line_discount_cents": 0,
+              "line_total_cents": 3500,
+              "condition": "unused",
+              "original_packaging": true,
+              "seal": "not_applicable",
+              "final_sale": false,
+              "returnable": true,
+              "returned_quantity": 0,
+              "pending_return_quantity": 0,
+              "fulfillment_status": "shipped",
+              "delivered_on": null,
+              "damage_reported_on": null
+            }
+          ],
+          "shipments": [
+            {
+              "shipment_id": "SHIP-2017-A",
+              "carrier": "Fictional Parcel",
+              "tracking_status": "delivered",
+              "item_ids": [
+                "ITEM-2017-A"
+              ],
+              "estimated_delivery_on": "2026-11-10"
+            },
+            {
+              "shipment_id": "SHIP-2017-B",
+              "carrier": "Fictional Parcel",
+              "tracking_status": "in_transit",
+              "item_ids": [
+                "ITEM-2017-B"
+              ],
+              "estimated_delivery_on": "2026-11-17"
+            }
+          ],
+          "refunds": []
+        }
+      ]
+    },
+    {
+      "customer_id": "CUS-218",
+      "name": "Amara Diallo",
+      "email": "amara.diallo@example.com",
+      "member_tier": "standard",
+      "member_since": "2025-03-12",
+      "preferred_contact": "email",
+      "shipping_region": {
+        "city": "Baltimore",
+        "state": "MD",
+        "country": "US"
+      },
+      "timezone": "America/New_York",
+      "orders": [
+        {
+          "order_id": "ORD-2018",
+          "status": "delivered",
+          "ordered_on": "2026-10-30",
+          "membership_at_purchase": "standard",
+          "payment_status": "paid",
+          "currency": "USD",
+          "subtotal_cents": 2400,
+          "shipping_cents": 500,
+          "tax_cents": 144,
+          "total_cents": 3044,
+          "items": [
+            {
+              "item_id": "ITEM-2018",
+              "product_name": "Cotton crew-neck shirt",
+              "category": "standard",
+              "quantity": 1,
+              "unit_price_cents": 2400,
+              "line_discount_cents": 0,
+              "line_total_cents": 2400,
+              "condition": "unused",
+              "original_packaging": true,
+              "seal": "not_applicable",
+              "final_sale": false,
+              "returnable": true,
+              "returned_quantity": 1,
+              "pending_return_quantity": 0,
+              "fulfillment_status": "delivered",
+              "delivered_on": "2026-11-03",
+              "damage_reported_on": null
+            }
+          ],
+          "shipments": [
+            {
+              "shipment_id": "SHIP-2018",
+              "carrier": "Fictional Parcel",
+              "tracking_status": "delivered",
+              "item_ids": [
+                "ITEM-2018"
+              ],
+              "estimated_delivery_on": "2026-11-03"
+            }
+          ],
+          "refunds": [
+            {
+              "refund_id": "REF-2018",
+              "item_id": "ITEM-2018",
+              "quantity": 1,
+              "amount_cents": 2400,
+              "status": "posted",
+              "approved_on": "2026-11-13",
+              "payment_method": "original_payment_method"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "customer_id": "CUS-219",
+      "name": "Ethan Walsh",
+      "email": "ethan.walsh@example.com",
+      "member_tier": "standard",
+      "member_since": "2025-04-12",
+      "preferred_contact": "email",
+      "shipping_region": {
+        "city": "Pittsburgh",
+        "state": "PA",
+        "country": "US"
+      },
+      "timezone": "America/New_York",
+      "orders": [
+        {
+          "order_id": "ORD-2019",
+          "status": "delivered",
+          "ordered_on": "2026-11-03",
+          "membership_at_purchase": "standard",
+          "payment_status": "paid",
+          "currency": "USD",
+          "subtotal_cents": 3800,
+          "shipping_cents": 500,
+          "tax_cents": 228,
+          "total_cents": 4528,
+          "items": [
+            {
+              "item_id": "ITEM-2019",
+              "product_name": "Ceramic serving bowl",
+              "category": "standard",
+              "quantity": 1,
+              "unit_price_cents": 3800,
+              "line_discount_cents": 0,
+              "line_total_cents": 3800,
+              "condition": "damaged",
+              "original_packaging": true,
+              "seal": "not_applicable",
+              "final_sale": false,
+              "returnable": true,
+              "returned_quantity": 0,
+              "pending_return_quantity": 0,
+              "fulfillment_status": "delivered",
+              "delivered_on": "2026-11-07",
+              "damage_reported_on": "2026-11-15"
+            }
+          ],
+          "shipments": [
+            {
+              "shipment_id": "SHIP-2019",
+              "carrier": "Fictional Parcel",
+              "tracking_status": "delivered",
+              "item_ids": [
+                "ITEM-2019"
+              ],
+              "estimated_delivery_on": "2026-11-07"
+            }
+          ],
+          "refunds": []
+        }
+      ]
+    },
+    {
+      "customer_id": "CUS-220",
+      "name": "Zoe Williams",
+      "email": "zoe.williams@example.com",
+      "member_tier": "standard",
+      "member_since": "2025-05-12",
+      "preferred_contact": "web_chat",
+      "shipping_region": {
+        "city": "Madison",
+        "state": "WI",
+        "country": "US"
+      },
+      "timezone": "America/Chicago",
+      "orders": [
+        {
+          "order_id": "ORD-2020",
+          "status": "delivered",
+          "ordered_on": "2026-11-06",
+          "membership_at_purchase": "standard",
+          "payment_status": "paid",
+          "currency": "USD",
+          "subtotal_cents": 2400,
+          "shipping_cents": 500,
+          "tax_cents": 144,
+          "total_cents": 3044,
+          "items": [
+            {
+              "item_id": "ITEM-2020",
+              "product_name": "Cotton crew-neck shirt",
+              "category": "standard",
+              "quantity": 1,
+              "unit_price_cents": 2400,
+              "line_discount_cents": 0,
+              "line_total_cents": 2400,
+              "condition": "unknown",
+              "original_packaging": true,
+              "seal": "not_applicable",
+              "final_sale": false,
+              "returnable": true,
+              "returned_quantity": 0,
+              "pending_return_quantity": 0,
+              "fulfillment_status": "delivered",
+              "delivered_on": "2026-11-10",
+              "damage_reported_on": null
+            }
+          ],
+          "shipments": [
+            {
+              "shipment_id": "SHIP-2020",
+              "carrier": "Fictional Parcel",
+              "tracking_status": "delivered",
+              "item_ids": [
+                "ITEM-2020"
+              ],
+              "estimated_delivery_on": "2026-11-10"
+            }
+          ],
+          "refunds": []
+        }
+      ]
+    }
+  ]
+}
