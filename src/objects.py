@@ -4,12 +4,14 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 AgentName = Literal["identity", "order", "policy"]
+OrderTopic = Literal["status", "returns", "cancellations", "unsupported"]
 Intent = Literal["identity", "refund/return", "delivery", "product", "order", "unsupported"]
 
 
 class SupervisorOutput(BaseModel):
     next_agent: AgentName
     intent: Intent
+    order_topic: OrderTopic | None = None
     order_id: str | None = None
     user_id: str | None = None
     clarification_question: str | None = None
@@ -22,7 +24,7 @@ class IdentityOutput(BaseModel):
 
 
 class OrderOutput(BaseModel):
-    topic: Literal["status", "returns", "cancellations", "unsupported"]
+    topic: OrderTopic
 
 
 class PolicyOutput(BaseModel):

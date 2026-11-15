@@ -174,6 +174,51 @@ class RetailGraphTests(unittest.TestCase):
         result = self.graph.invoke(Command(resume='customer01@example.com'), self.config)
         self.assertEqual(result['agent_result']['reason_code'], 'order_status_found')
 
+    def test_status_request_cannot_turn_into_return_after_email_resume(self):
+        self.patches['identity'].invoke.return_value = IdentityOutput()
+        # Reproduce the small order model choosing the wrong topic.
+        self.patches['order'].invoke.return_value = OrderOutput(topic='returns')
+        result = self.run_request('Where is order ORD-001?')
+        self.assertIn('__interrupt__', result)
+        result = self.graph.invoke(Command(resume='customer01@example.com'), self.config)
+        self.assertEqual(result['agent_result']['reason_code'], 'order_status_found')
+        self.assertEqual(result['messages'][-1].content, 'Order ORD-001 (Blue mug) is shipped.')
+        self.assertNotIn('check_order_eligibility', [e['tool'] for e in result['tool_history']])
+        self.assertEqual(result['order_state']['topic'], 'status')
+        self.assertEqual(result['order_state']['model_topic'], 'returns')
+        self.assertEqual(result['order_state']['topic_source'], 'supervisor')
+        self.assertEqual(result['customer_request'], 'Where is order ORD-001?')
+        self.assertEqual(self.patches['order'].invoke.call_args.args[0][-1].content,
+                         'Where is order ORD-001?')
+
+    def test_explicit_order_topics_override_disagreeing_small_model(self):
+        for topic, order_id, owner, expected in [
+            ('returns', 'ORD-003', 'CUS-003', 'return_eligible'),
+            ('cancellations', 'ORD-002', 'CUS-002', 'cancellation_eligible'),
+            ('unsupported', 'ORD-003', 'CUS-003', 'unsupported_order_request'),
+        ]:
+            with self.subTest(topic=topic):
+                self.config['configurable']['thread_id'] = topic
+                self.supervisor.invoke.return_value = SupervisorOutput(
+                    next_agent='order', intent='order', order_topic=topic)
+                self.patches['order'].invoke.return_value = OrderOutput(topic='status')
+                result = self.run_request(f'Help with {topic} for {order_id}', verified_user_id=owner)
+                self.assertEqual(result['agent_result']['reason_code'], expected)
+                self.assertEqual(result['order_state']['topic'], topic)
+                self.assertEqual(result['order_state']['model_topic'], 'status')
+
+    def test_new_request_replaces_prior_order_task(self):
+        self.supervisor.invoke.return_value = SupervisorOutput(next_agent='order', intent='order')
+        result = self.run_request('Where is ORD-003?', verified_user_id='CUS-003')
+        self.assertEqual(result['order_topic'], 'status')
+        self.supervisor.invoke.return_value = SupervisorOutput(
+            next_agent='order', intent='refund/return', order_topic='returns')
+        # The specialist wrongly keeps its old topic; the new assigned task wins.
+        result = self.run_request('Can I return ORD-003?')
+        self.assertEqual(result['customer_request'], 'Can I return ORD-003?')
+        self.assertEqual(result['agent_result']['reason_code'], 'return_eligible')
+        self.assertEqual(result['order_topic'], 'returns')
+
     def test_other_customers_order_and_unknown_order_are_unavailable(self):
         for order_id in ('ORD-002', 'ORD-999'):
             with self.subTest(order_id=order_id):
@@ -254,7 +299,7 @@ class RetailGraphTests(unittest.TestCase):
     def test_no_fixture_mutation(self):
         before = (DATA/'customers.json').read_bytes()
         self.patches['order'].invoke.return_value = OrderOutput(topic='cancellations')
-        self.supervisor.invoke.return_value = SupervisorOutput(next_agent='order',intent='order',order_id='ORD-002')
+        self.supervisor.invoke.return_value = SupervisorOutput(next_agent='order',intent='order',order_id='ORD-002',order_topic='cancellations')
         result = self.run_request('Cancel ORD-002', verified_user_id='CUS-002')
         self.assertEqual(result['agent_result']['reason_code'], 'cancellation_eligible')
         self.assertIn('No cancellation has been performed', result['messages'][-1].content)

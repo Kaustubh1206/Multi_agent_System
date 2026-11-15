@@ -22,7 +22,8 @@ checks; customer answers use those results rather than invented model facts.
   whitespace. If both are supplied, both must match the same record. Missing,
   unknown, conflicting, or ambiguous input triggers a human follow-up. A customer
   ID extracted from chat does not identify someone by itself.
-- **Order:** retrieves only the identified customer's order. Reports recorded
+- **Order:** executes the supervisor's saved order topic and retrieves only the
+  identified customer's order. Reports recorded
   status or checks return/cancellation eligibility. Unknown orders and orders
   owned by someone else return the same unavailable response.
 - **Policy:** answers public return, refund, and cancellation policy questions
@@ -47,10 +48,13 @@ modified by the graph.
 2. Order requests go through identity first if no customer is identified.
 3. Successful identification continues the original order request.
 4. Any specialist needing information returns its question to the supervisor.
-5. The supervisor pauses with `interrupt`; the application collects a human
+5. The supervisor saves `customer_request` and `order_topic` (status, returns,
+   cancellations, or unsupported) before the identity handoff. These survive
+   human replies. The smaller order model cannot change the assigned operation.
+6. The supervisor pauses with `interrupt`; the application collects a human
    reply and resumes the same thread. It continues the pending specialist without
    asking the supervisor model to classify the clarification answer again.
-6. Completed answers, denials, and failures end the run. There are no automatic
+7. Completed answers, denials, and failures end the run. There are no automatic
    retries or separate customer-input node.
 
 Questions and decisions are checkpointed before interruption. Resumption does not
@@ -108,11 +112,12 @@ Each specialist has its own small state:
 | State | Fields |
 |---|---|
 | `identity_state` | Extracted name/email and successfully matched customer ID |
-| `order_state` | Selected topic and authorized order record |
+| `order_state` | Executed topic, model-proposed topic, topic source, and authorized order record |
 | `policy_state` | Selected topic and policy version |
 
 Shared state retains messages, extracted identifiers, routing, the pending
-question, `pending_agent` (the node awaiting a reply), and the latest `agent_result`. A result contains agent, status,
+question, `pending_agent` (the node awaiting a reply), the original
+`customer_request`, assigned `order_topic`, and the latest `agent_result`. A result contains agent, status,
 reason code, customer message, optional question, references, evidence IDs, and
 an optional error type. Status distinguishes `completed`, `needs_information`,
 `denied`, and `failed`; a policy denial is not an operational failure.
@@ -128,11 +133,14 @@ For later evaluation/recovery:
 - Streaming with `stream_mode="updates"`: node-by-node updates.
 
 Models and tools use native LangChain run tracing. Model runs carry the
-`retail-v3` prompt version; tool run metadata links back to the state evidence ID. Attach callbacks through the
+`retail-v4` prompt version; tool run metadata links back to the state evidence ID. Attach callbacks through the
 run config or enable LangSmith tracing (`LANGSMITH_TRACING=true`, secure
 `LANGSMITH_API_KEY`, `LANGSMITH_PROJECT`) before execution for model inputs,
 outputs, exceptions, timing, parent/child runs, and model usage when Ollama
-provides it. State summaries are not a complete model trace. Invalid structured
+provides it. `order_state.model_topic` and `order_state.topic` retain any
+disagreement between the small model and the executed supervisor task, so a
+corrected classification remains visible to evaluation. State summaries are
+not a complete model trace. Invalid structured
 outputs, tool errors, and model failures have separate reason codes. No Matrace
 adapter, metric scoring, or automatic recovery is implemented yet.
 

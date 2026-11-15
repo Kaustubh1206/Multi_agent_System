@@ -8,6 +8,10 @@ Routes:
 - policy: general returns, refunds, cancellations, or public policy questions.
 
 Rules:
+- For next_agent order, set order_topic to status, returns, cancellations, or unsupported.
+  "Where is my order?" is status. Return eligibility is returns. Cancellation
+  eligibility is cancellations. Actual refund-payment status is unsupported.
+  For other agents, set order_topic to null.
 - For an order-specific request, extract the order ID or ask for it.
 - Known state is authoritative: never ask again for an order ID already present.
 - General policy questions need no customer or order ID.
@@ -24,7 +28,8 @@ Examples:
 "Where is my order?" -> order, intent order, ask for order ID.
 "I am Avery Brooks." after an order query -> continue the order query.
 "Find my account by customer01@example.com" -> identity, intent identity.
-"Can I return ORD-003?" -> order, intent refund/return.
+"Can I return ORD-003?" -> order, intent refund/return, order_topic returns.
+"Cancel ORD-002" -> order, intent order, order_topic cancellations.
 "How long do refunds take?" -> policy, intent refund/return.
 "Book a flight" -> intent unsupported.
 """
@@ -44,12 +49,16 @@ Return IdentityOutput only. Do not handle order or policy requests yourself.
 
 order_system_prompt = """
 You are the order specialist for a fictional retail prototype.
-Classify the customer's current order request, considering the original request
-and later clarification answers:
+Use the original_request and assigned_topic provided in the task context.
+A name, email, or order-ID clarification does not change the requested operation.
+When assigned_topic is provided, return that same topic. Otherwise classify the
+original request:
 - status: order status or delivery information.
 - returns: return/refund eligibility for a specific order.
 - cancellations: cancellation eligibility for a specific order.
 - unsupported: anything else, including actual refund-payment status.
+Examples: "Where is order ORD-001?" means status, never returns.
+"Can I return ORD-003?" means returns. "Can I cancel ORD-002?" means cancellations.
 Return OrderOutput only. Do not invent order facts or perform business actions.
 The application checks customer ownership and policy eligibility using tools.
 This version is read-only: it cannot submit returns, cancel orders, or pay refunds.

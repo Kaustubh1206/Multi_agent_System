@@ -18,16 +18,16 @@ from .tools import check_order_eligibility, get_order, get_policy, identify_cust
 
 
 supervisor_llm = supervisor_model.with_structured_output(SupervisorOutput).with_config(
-    run_name="supervisor_decision", metadata={"prompt_version": "retail-v3"}
+    run_name="supervisor_decision", metadata={"prompt_version": "retail-v4"}
 )
 identity_llm = specialist_model.with_structured_output(IdentityOutput).with_config(
-    run_name="identity_extraction", metadata={"prompt_version": "retail-v3"}
+    run_name="identity_extraction", metadata={"prompt_version": "retail-v4"}
 )
 order_llm = specialist_model.with_structured_output(OrderOutput).with_config(
-    run_name="order_classification", metadata={"prompt_version": "retail-v3"}
+    run_name="order_classification", metadata={"prompt_version": "retail-v4"}
 )
 policy_llm = specialist_model.with_structured_output(PolicyOutput).with_config(
-    run_name="policy_classification", metadata={"prompt_version": "retail-v3"}
+    run_name="policy_classification", metadata={"prompt_version": "retail-v4"}
 )
 
 
@@ -110,7 +110,8 @@ def supervisor_node(state: RetailState) -> dict:
         # A name/email/order-ID answer belongs to the saved task, not a new intent.
         decision = {"intent": state.get("intent"), "next_agent": state["next_agent"],
                     "order_id": order_id, "user_id": state.get("user_id"),
-                    "clarification_question": None}
+                    "customer_request": state.get("customer_request", ""),
+                    "order_topic": state.get("order_topic"), "clarification_question": None}
         return {**decision, "messages": new_messages, "agent_result": None,
                 "pending_agent": pending, "supervisor_history": [{**decision, "source": "human_resume", "resume_agent": pending}]}
 
@@ -127,6 +128,8 @@ def supervisor_node(state: RetailState) -> dict:
         return {**update, "order_id": order_id}
 
     decision = response.model_dump()
+    decision["customer_request"] = next((message.content for message in reversed(messages)
+                                         if isinstance(message, HumanMessage)), "")
     # Preserve explicit identifiers even if the classifier omits/hallucinates them.
     decision["order_id"] = order_id
     decision["user_id"] = response.user_id or state.get("user_id")
@@ -140,10 +143,14 @@ def supervisor_node(state: RetailState) -> dict:
     if response.intent in {"order", "delivery"}:
         decision["next_agent"] = "order"
     if decision["next_agent"] == "order":
+        if decision["order_topic"] is None:
+            decision["order_topic"] = {"order": "status", "delivery": "status",
+                                       "refund/return": "returns"}.get(response.intent)
         # Required fields are checked in code, not in a model-generated question.
         decision["clarification_question"] = None if order_id else "What is your order ID?"
         pending = "order" if not order_id else None
     else:
+        decision["order_topic"] = None
         pending = None
     if decision["clarification_question"]:
         new_messages.append(AIMessage(content=decision["clarification_question"]))
@@ -204,35 +211,52 @@ def order_node(state: RetailState) -> dict:
         ))
     references = {"customer_id": owner, "order_id": order_id}
     try:
+        original_request = state.get("customer_request") or next(
+            (message.content for message in state["messages"] if isinstance(message, HumanMessage)), ""
+        )
+        assigned_topic = state.get("order_topic")
+        topic_source = "supervisor"
+        if assigned_topic is None:
+            # Compatibility with older checkpoints that stored only the broad intent.
+            assigned_topic = {"order": "status", "delivery": "status", "refund/return": "returns"}.get(state.get("intent"))
+            topic_source = "supervisor_intent"
+        context = {"original_request": original_request, "assigned_topic": assigned_topic,
+                   "order_id": order_id}
         request = order_llm.invoke([
-            SystemMessage(content=order_system_prompt), *state["messages"],
+            SystemMessage(content=order_system_prompt + "\nAssigned task: " + json.dumps(context)),
+            HumanMessage(content=original_request),
         ])
-        if request.topic == "unsupported":
+        # Clarification answers and a smaller model's classification cannot change
+        # the saved task. Preserve its proposed topic so disagreements remain visible.
+        topic = assigned_topic or request.topic
+        order_state = {"topic": topic, "model_topic": request.topic,
+                       "topic_source": topic_source if assigned_topic else "order_model", "record": {}}
+        if topic == "unsupported":
             return finish(AgentResult(
                 agent="order", status="denied", reason_code="unsupported_order_request",
                 customer_message="I can check order status and return or cancellation eligibility, but cannot access refund-payment status or perform actions.",
-            ))
+            ), order_state=order_state)
         lookup = call_tool(get_order, references, events)
         if lookup["status"] != "found":
             return finish(AgentResult(
                 agent="order", status="denied", reason_code="order_unavailable",
                 customer_message="This order is unavailable for the identified customer.",
                 references=references, evidence=[events[-1]["id"]],
-            ), events, order_state={"topic": request.topic, "record": {}})
+            ), events, order_state=order_state)
         order = lookup["order"]
         status, reason = "completed", "order_status_found"
-        if request.topic == "status":
+        if topic == "status":
             message = f"Order {order_id} ({order['product']}) is {order['status']}."
         else:
             eligibility = call_tool(check_order_eligibility,
-                                    {**references, "topic": request.topic}, events)
+                                    {**references, "topic": topic}, events)
             if eligibility["status"] != "checked":
                 raise ValueError("Eligibility lookup did not complete")
             references["policy_version"] = eligibility["policy_version"]
             allowed = eligibility["eligible"]
             status = "completed" if allowed else "denied"
             reason = "return_eligible" if allowed else "return_not_eligible"
-            if request.topic == "returns":
+            if topic == "returns":
                 age = eligibility["days_since_delivery"]
                 if age is not None and age > 30:
                     reason = "return_window_expired"
@@ -246,7 +270,7 @@ def order_node(state: RetailState) -> dict:
         return finish(AgentResult(
             agent="order", status=status, reason_code=reason, customer_message=message,
             references=references, evidence=[event["id"] for event in events],
-        ), events, order_state={"topic": request.topic, "record": order})
+        ), events, order_state={**order_state, "record": order})
     except Exception as exc:
         return failure("order", exc, events)
 

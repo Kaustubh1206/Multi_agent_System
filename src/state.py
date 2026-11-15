@@ -5,7 +5,7 @@ from langchain_core.messages import AnyMessage
 from langgraph.graph import add_messages
 from typing_extensions import TypedDict
 
-from .objects import AgentName, Intent
+from .objects import AgentName, Intent, OrderTopic
 
 
 class IdentityState(TypedDict, total=False):
@@ -15,7 +15,9 @@ class IdentityState(TypedDict, total=False):
 
 
 class OrderState(TypedDict, total=False):
-    topic: str
+    topic: OrderTopic
+    model_topic: OrderTopic
+    topic_source: str
     record: dict
 
 
@@ -27,6 +29,8 @@ class PolicyState(TypedDict, total=False):
 class RetailState(TypedDict):
     messages: Annotated[list[AnyMessage], add_messages]
     intent: NotRequired[Intent]
+    customer_request: NotRequired[str]
+    order_topic: NotRequired[OrderTopic | None]
     order_id: NotRequired[str | None]
     user_id: NotRequired[str | None]  # Conversational ID; not used for authorization.
     verified_user_id: NotRequired[str | None]  # Optional application session input.
