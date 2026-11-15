@@ -18,16 +18,16 @@ from .tools import check_order_eligibility, get_order, get_policy, identify_cust
 
 
 supervisor_llm = supervisor_model.with_structured_output(SupervisorOutput).with_config(
-    run_name="supervisor_decision", metadata={"prompt_version": "retail-v4"}
+    run_name="supervisor_decision", metadata={"prompt_version": "retail-v5"}
 )
 identity_llm = specialist_model.with_structured_output(IdentityOutput).with_config(
-    run_name="identity_extraction", metadata={"prompt_version": "retail-v4"}
+    run_name="identity_extraction", metadata={"prompt_version": "retail-v5"}
 )
 order_llm = specialist_model.with_structured_output(OrderOutput).with_config(
-    run_name="order_classification", metadata={"prompt_version": "retail-v4"}
+    run_name="order_classification", metadata={"prompt_version": "retail-v5"}
 )
 policy_llm = specialist_model.with_structured_output(PolicyOutput).with_config(
-    run_name="policy_classification", metadata={"prompt_version": "retail-v4"}
+    run_name="policy_classification", metadata={"prompt_version": "retail-v5"}
 )
 
 
@@ -140,7 +140,7 @@ def supervisor_node(state: RetailState) -> dict:
         ))
         update["messages"] = new_messages + update["messages"]
         return {**decision, **update, "supervisor_history": [decision]}
-    if response.intent in {"order", "delivery"}:
+    if response.intent in {"order", "delivery"} and response.next_agent != "policy":
         decision["next_agent"] = "order"
     if decision["next_agent"] == "order":
         if decision["order_topic"] is None:
@@ -198,6 +198,65 @@ def identity_node(state: RetailState) -> dict:
         return failure("identity", exc, events)
 
 
+
+def active_human_texts(state, original_request):
+    messages = [m.content for m in state["messages"] if isinstance(m, HumanMessage) and isinstance(m.content, str)]
+    start = next((i for i in range(len(messages) - 1, -1, -1) if messages[i] == original_request), 0)
+    return messages[start:]
+
+
+def return_inputs(order, texts):
+    """Read explicit selectors/condition answers; never guess a multi-item target."""
+    inputs = {}
+    for text in texts:
+        if match := re.search(r"\bITEM-\d+(?:-[A-Z])?\b", text, re.I):
+            inputs["item_id"] = match.group().upper()
+        else:
+            named = [i for i in order["items"] if i["product_name"].casefold() in text.casefold()]
+            if len(named) == 1:
+                inputs["item_id"] = named[0]["item_id"]
+        if match := re.search(r"\b(?:return|quantity|qty)\s*:?\s*(\d+)\b|\b(\d+)\s+units?\b", text, re.I):
+            inputs["quantity"] = int(match.group(1) or match.group(2))
+        # An email's local part is not an item-condition declaration.
+        text = EMAIL.sub("", text).casefold()
+        if re.search(r"\bdamaged\b", text) and not re.search(r"\bnot damaged\b", text):
+            inputs["condition"] = "damaged"
+        elif re.search(r"\bnot unused\b", text):
+            inputs["condition"] = "used"
+        elif re.search(r"\bunused\b|\bnot used\b", text):
+            inputs["condition"] = "unused"
+        elif re.search(r"\btried on\b", text):
+            inputs["condition"] = "tried_on"
+        elif re.search(r"\bused\b", text):
+            inputs["condition"] = "used"
+        if re.search(r"\b(?:no|without|not in|not with) (?:the )?original packaging\b", text):
+            inputs["packaging"] = False
+        elif "original packaging" in text:
+            inputs["packaging"] = True
+        if re.search(r"\b(?:unsealed|opened)\b", text):
+            inputs["seal"] = "opened"
+        elif re.search(r"\b(?:sealed|unopened)\b", text):
+            inputs["seal"] = "sealed"
+    return inputs
+
+
+def order_status_message(order_id, order):
+    if "items" not in order:
+        return f"Order {order_id} ({order['product']}) is {order['status']}."
+    message = f"Order {order_id} is {order['status']}."
+    if order['status'] == 'cancelled':
+        return message
+    for item in order["items"]:
+        message += f" {item['item_id']} ({item['product_name']}) is {item['fulfillment_status']}."
+        if item["delivered_on"]:
+            message += f" Delivered on {item['delivered_on']}."
+    for shipment in order["shipments"]:
+        message += f" Shipment {shipment['shipment_id']}: {shipment['tracking_status']}."
+        if shipment.get("estimated_delivery_on"):
+            message += f" Recorded delivery estimate: {shipment['estimated_delivery_on']} (not a guarantee)."
+    return message
+
+
 def order_node(state: RetailState) -> dict:
     events = []
     owner = customer_id(state)
@@ -246,13 +305,24 @@ def order_node(state: RetailState) -> dict:
         order = lookup["order"]
         status, reason = "completed", "order_status_found"
         if topic == "status":
-            message = f"Order {order_id} ({order['product']}) is {order['status']}."
+            message = order_status_message(order_id, order)
         else:
+            selectors = return_inputs(order, active_human_texts(state, original_request)) if topic == "returns" and "items" in order else {}
             eligibility = call_tool(check_order_eligibility,
-                                    {**references, "topic": topic}, events)
+                                    {**references, "topic": topic, **selectors}, events)
             if eligibility["status"] != "checked":
                 raise ValueError("Eligibility lookup did not complete")
             references["policy_version"] = eligibility["policy_version"]
+            if "outcome" in eligibility:
+                status = {"eligible": "completed", "ineligible": "denied",
+                          "needs_information": "needs_information", "needs_review": "needs_review"}[eligibility["outcome"]]
+                if "item_id" in selectors:
+                    references["item_id"] = selectors["item_id"]
+                return finish(AgentResult(
+                    agent="order", status=status, reason_code=eligibility["reason_code"],
+                    customer_message=eligibility["explanation"], question=eligibility.get("question"),
+                    references=references, evidence=[event["id"] for event in events],
+                ), events, order_state={**order_state, "record": order, "eligibility": eligibility})
             allowed = eligibility["eligible"]
             status = "completed" if allowed else "denied"
             reason = "return_eligible" if allowed else "return_not_eligible"

@@ -7,9 +7,10 @@ not actual customer addresses. Amounts are integer USD cents. Fixture tax is a
 simplified 6% calculation, not a statement of real state tax rates.
 
 This is a new evaluation specification inspired by the older evaluation branch.
-It is not copied from it. The current application still uses `simple-retail`;
-these rules require a version-2 runtime and harness before execution can be scored.
-No scenario in this dataset is a claim of a passing model run.
+It is not copied from it. The application now uses this dataset for read-only
+identification, order/shipment lookup, policy answers, eligibility, and review
+requirements. Confirmation/mutation and injected-recovery scenarios remain
+acceptance targets. No scenario is a claim of a passing live model run.
 
 ## P1 — Agent responsibilities
 

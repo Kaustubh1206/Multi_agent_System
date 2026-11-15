@@ -28,7 +28,7 @@ class OrderOutput(BaseModel):
 
 
 class PolicyOutput(BaseModel):
-    topic: Literal["returns", "refunds", "cancellations", "unsupported"]
+    topic: Literal["returns", "refunds", "cancellations", "shipping", "identification", "unsupported"]
 
 
 class AgentResult(BaseModel):
@@ -36,7 +36,7 @@ class AgentResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     agent: Literal["supervisor", "identity", "order", "policy"]
-    status: Literal["completed", "needs_information", "denied", "failed"]
+    status: Literal["completed", "needs_information", "needs_review", "denied", "failed"]
     reason_code: str
     customer_message: str
     question: str | None = None

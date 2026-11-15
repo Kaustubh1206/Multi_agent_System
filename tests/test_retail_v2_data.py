@@ -88,7 +88,11 @@ class RetailV2DataTests(unittest.TestCase):
             with self.subTest(scenario=scenario['id']):
                 self.assertTrue(set(scenario['evaluation_dimensions']) <= dimensions)
                 self.assertEqual(scenario['execution_status'], 'not_run')
-                self.assertEqual(scenario['implementation_status'], 'requires_v2_runtime')
+                self.assertIn(scenario['implementation_status'], {'read_only_supported', 'requires_mutations', 'requires_recovery'})
+                if 'fault_injection' in scenario:
+                    self.assertEqual(scenario['implementation_status'], 'requires_recovery')
+                if scenario['expected']['database_changes'] and 'fault_injection' not in scenario:
+                    self.assertEqual(scenario['implementation_status'], 'requires_mutations')
                 self.assertTrue(scenario['messages'])
                 self.assertTrue(all(isinstance(m, str) and m.strip() for m in scenario['messages']))
                 self.assertTrue(set(scenario['policy_rules']) <= {f'P{i}' for i in range(1, 11)})

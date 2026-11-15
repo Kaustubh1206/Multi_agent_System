@@ -19,6 +19,7 @@ class OrderState(TypedDict, total=False):
     model_topic: OrderTopic
     topic_source: str
     record: dict
+    eligibility: dict
 
 
 class PolicyState(TypedDict, total=False):

@@ -1,13 +1,16 @@
 """Small read-only tools. File paths do not depend on the shell's working directory."""
 import json
+import re
 from datetime import date
 from pathlib import Path
 
 from langchain_core.tools import tool
 
+from .retail_rules import return_decision
 
-DATA = Path(__file__).resolve().parents[1] / "evaluation" / "simple-retail"
-POLICY_VERSION = "simple-retail-v1"
+
+SIMPLE_DATA = Path(__file__).resolve().parents[1] / "evaluation" / "simple-retail"
+DATA = SIMPLE_DATA.parent / "retail-v2"
 
 
 def load_customers():
@@ -36,8 +39,11 @@ def identify_customer(name: str | None = None, email: str | None = None) -> dict
 def get_order(customer_id: str, order_id: str) -> dict:
     """Read only an order belonging to the identified customer; otherwise return unavailable."""
     for customer in load_customers()["customers"]:
-        if customer["customer_id"] == customer_id and customer["order"]["order_id"] == order_id:
-            return {"status": "found", "order": customer["order"]}
+        if customer["customer_id"] == customer_id:
+            orders = customer.get("orders", [customer.get("order")])
+            for order in orders:
+                if order and order["order_id"] == order_id:
+                    return {"status": "found", "order": order}
     # Unknown order and another customer's order have the same public response.
     return {"status": "unavailable"}
 
@@ -45,20 +51,32 @@ def get_order(customer_id: str, order_id: str) -> dict:
 @tool
 def get_policy(topic: str) -> dict:
     """Read the short versioned policy document for an allowed public topic."""
-    if topic not in {"returns", "refunds", "cancellations"}:
+    if topic not in {"returns", "refunds", "cancellations", "shipping", "identification"}:
         return {"status": "unsupported"}
     text = (DATA / "policy.md").read_text()
-    if f"`{POLICY_VERSION}`" not in text:
-        raise ValueError("Policy document and rule implementation versions differ")
+    version = load_customers().get("policy_version", "simple-retail-v1")
+    if f"`{version}`" not in text:
+        raise ValueError("Policy document and dataset versions differ")
+    if version == "retail-v2.0":
+        rules = {"returns": ["P4", "P5", "P6"], "refunds": ["P7"], "cancellations": ["P9"],
+                 "shipping": ["P8"], "identification": ["P2"]}[topic]
+        sections = dict(re.findall(r"^## (P\d+) ([\s\S]*?)(?=^## |\Z)", text, re.M))
+        return {"status": "found", "version": version, "topic": topic,
+                "answer": "\n\n".join(rule + " " + sections[rule].strip() for rule in rules)}
+    if topic not in {"returns", "refunds", "cancellations"}:
+        return {"status": "unsupported"}
     # Policy lines have stable prefixes; missing rules are data errors, not guesses.
     prefix = {"returns": "- A returnable item", "refunds": "- Refunds are processed",
               "cancellations": "- Pending orders"}[topic]
     answer = next(line.removeprefix("- ") for line in text.splitlines() if line.startswith(prefix))
-    return {"status": "found", "version": POLICY_VERSION, "topic": topic, "answer": answer}
+    return {"status": "found", "version": version, "topic": topic, "answer": answer}
 
 
 @tool
-def check_order_eligibility(customer_id: str, order_id: str, topic: str) -> dict:
+def check_order_eligibility(customer_id: str, order_id: str, topic: str,
+                            item_id: str | None = None, quantity: int | None = None,
+                            condition: str | None = None, packaging: bool | None = None,
+                            seal: str | None = None) -> dict:
     """Check returns/cancellation rules against the dataset clock and an authorized order."""
     # Recheck authorization here instead of trusting a model-supplied order record.
     lookup = get_order.func(customer_id, order_id)
@@ -69,6 +87,19 @@ def check_order_eligibility(customer_id: str, order_id: str, topic: str) -> dict
     if policy["status"] != "found":
         return {"status": "unsupported"}
     result = {"status": "checked", "policy_version": policy["version"], "rule": policy["answer"]}
+    if "items" in order:
+        today = date.fromisoformat(load_customers()["evaluation_date"])
+        result["evaluation_date"] = today.isoformat()
+        if topic == "returns":
+            result.update(return_decision(order, item_id, quantity, today, condition, packaging, seal))
+        elif topic == "cancellations":
+            allowed = order["status"] == "pending"
+            result.update(eligible=allowed, outcome="eligible" if allowed else "ineligible",
+                          reason_code="cancellation_eligible" if allowed else "order_not_cancellable",
+                          explanation=f"Order {order_id} is {order['status']}. " +
+                          ("It is eligible for cancellation after explicit confirmation. " if allowed else "It cannot be cancelled through this flow. ") +
+                          "No cancellation or refund has been performed.")
+        return result
     if topic == "returns":
         today = date.fromisoformat(load_customers()["evaluation_date"])
         age = ((today - date.fromisoformat(order["delivered_on"])).days

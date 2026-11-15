@@ -12,7 +12,7 @@ from langgraph.types import Command
 from src.graphs import build_graph
 from src.models import specialist_model, supervisor_model
 from src.objects import AgentResult, IdentityOutput, OrderOutput, PolicyOutput, SupervisorOutput
-from src.tools import DATA, check_order_eligibility, identify_customer, load_customers
+from src.tools import SIMPLE_DATA as DATA, check_order_eligibility, identify_customer, load_customers
 
 
 class ToolRecorder(BaseCallbackHandler):
@@ -27,6 +27,9 @@ class ToolRecorder(BaseCallbackHandler):
 
 class RetailGraphTests(unittest.TestCase):
     def setUp(self):
+        dataset = patch('src.tools.DATA', DATA)
+        dataset.start()
+        self.addCleanup(dataset.stop)
         self.graph = build_graph(InMemorySaver())
         self.config = {"configurable": {"thread_id": self.id()}}
         self.patches = {}
@@ -307,6 +310,11 @@ class RetailGraphTests(unittest.TestCase):
 
 
 class DataToolTests(unittest.TestCase):
+    def setUp(self):
+        dataset = patch('src.tools.DATA', DATA)
+        dataset.start()
+        self.addCleanup(dataset.stop)
+
     def test_name_email_case_and_conflicting_inputs(self):
         self.assertEqual(identify_customer.invoke({'name':'  AVERY BROOKS  '})['customer_id'], 'CUS-001')
         self.assertEqual(identify_customer.invoke({'email':'CUSTOMER01@EXAMPLE.COM'})['customer_id'], 'CUS-001')

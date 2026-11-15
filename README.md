@@ -1,71 +1,11 @@
-# Simple retail support graph
+# Retail support — version 2
 
-The supervisor uses Ollama **qwen3:4b** for intent, routing, and human follow-ups.
-Identity, order, and policy specialists use **qwen3:0.6b** for small structured
-extraction/classification tasks. Python tools perform lookups and eligibility
-checks; customer answers use those results rather than invented model facts.
+The default runtime now reads **`evaluation/retail-v2/`**: 20 fictional customers,
+30 orders, and policy `retail-v2.0`, evaluated at the fixture date 2026-11-15.
+It does not read `evaluation/simple-retail/`. That smaller dataset and the
+`simple-retail-version-1` branch remain as the original baseline.
 
-## Files
-
-| File | Responsibility |
-|---|---|
-| `src/prompts.py` | System prompts for all four agents |
-| `src/state.py` | Shared conversation state and small identity/order/policy states |
-| `src/objects.py` | Structured model outputs and shared `AgentResult` |
-| `src/nodes.py` | Model calls, tool calls, agent results, and human interrupt |
-| `src/graphs.py` | Nodes and conditional routing |
-| `src/tools.py` | Read-only dataset lookup and policy checks |
-
-## Behavior
-
-- **Identity:** exact full-name or email match, ignoring case and surrounding
-  whitespace. If both are supplied, both must match the same record. Missing,
-  unknown, conflicting, or ambiguous input triggers a human follow-up. A customer
-  ID extracted from chat does not identify someone by itself.
-- **Order:** executes the supervisor's saved order topic and retrieves only the
-  identified customer's order. Reports recorded
-  status or checks return/cancellation eligibility. Unknown orders and orders
-  owned by someone else return the same unavailable response.
-- **Policy:** answers public return, refund, and cancellation policy questions
-  without customer identification. Product details and policy topics absent
-  from the dataset are unsupported.
-
-A unique name/email match identifies a customer **for this fictional prototype**;
-this is not production authentication. Optional `verified_user_id` remains a
-trusted application/session input and takes priority over a name/email lookup.
-Otherwise, the lookup tool sets `identity_state.customer_id`. `user_id` is only
-conversational information and is never used to authorize an order lookup.
-
-All operations are **read-only**. Eligibility is an answer, not a completed
-return/cancellation. Explicit confirmation and mutation tools will be implemented
-later; the graph does not currently submit returns, cancel orders, or pay refunds.
-The policy retains those future action requirements. Dataset files are never
-modified by the graph.
-
-## Edges and human input
-
-1. Supervisor asks for an order ID when an order-specific request lacks one.
-2. Order requests go through identity first if no customer is identified.
-3. Successful identification continues the original order request.
-4. Any specialist needing information returns its question to the supervisor.
-5. The supervisor saves `customer_request` and `order_topic` (status, returns,
-   cancellations, or unsupported) before the identity handoff. These survive
-   human replies. The smaller order model cannot change the assigned operation.
-6. The supervisor pauses with `interrupt`; the application collects a human
-   reply and resumes the same thread. It continues the pending specialist without
-   asking the supervisor model to classify the clarification answer again.
-7. Completed answers, denials, and failures end the run. There are no automatic
-   retries or separate customer-input node.
-
-Questions and decisions are checkpointed before interruption. Resumption does not
-repeat the earlier lookup/model call just to display the same question. Explicit
-`ORD-...` identifiers are captured from human messages and retained in state.
-Bare email replies go straight to lookup; emails in sentences override model
-extraction, and stale names/emails are excluded from identity corrections. An unclear
-answer can lead to another pause. Failures are recorded and stop rather than
-being retried indefinitely.
-
-## Run
+## Run locally
 
 With Python 3.12 and uv:
 
@@ -75,131 +15,120 @@ ollama pull qwen3:4b
 ollama pull qwen3:0.6b
 ```
 
-Run `ollama serve` if the local service is not already running.
-For direct Python use:
+Start `ollama serve` if the local service is not already running. Direct Python
+callers must use `build_graph(InMemorySaver())` and a unique thread ID per
+conversation. The LangGraph development server supplies its own checkpointing.
+If you created `run_local.py` using the earlier terminal example, that launcher
+still works: update this branch, restart the process, and start a fresh thread.
+LangSmith is optional for direct execution; the earlier launcher disables remote
+tracing and still retains state histories during the process.
 
-```python
-from langchain_core.messages import HumanMessage
-from langgraph.checkpoint.memory import InMemorySaver
-from langgraph.types import Command
-from src.graphs import build_graph
+Example conversation after updating:
 
-graph = build_graph(InMemorySaver())
-config = {"configurable": {"thread_id": "retail-demo-1"}}
-result = graph.invoke(
-    {"messages": [HumanMessage(
-        content="I am Avery Brooks. Where is order ORD-001?"
-    )]}, config
-)
-while result.get("__interrupt__"):
-    question = result["__interrupt__"][0].value["question"]
-    result = graph.invoke(Command(resume=input(question + " ")), config)
-print(result["agent_result"])
+```text
+You: The tea gift box in ORD-2013 arrived damaged. Can I get a refund?
+Agent: Please provide your full name or email address.
+You: priya.nair@example.com
+Agent: [Damage was reported within 7 days; human review is required.
+        No review case, return, or refund has been submitted or approved.]
 ```
 
-Use one thread per conversation. For offline scenarios, the dataset's non-null
-`customer_id` can be mapped to trusted `verified_user_id` to skip identification.
+Priya is CUS-213. Her order is nested under her v2 customer record. The final
+structured status is `needs_review`, reason `damage_review_required`. This is
+an explanation of the review requirement, not a handoff to a real review service.
 
-The exported `src.graphs:graph` is for the LangGraph development server, which
-supplies checkpointing. Direct callers need `build_graph(checkpointer)` for
-interrupt/resume. `InMemorySaver` lasts only within the process. Use persistent
-checkpoint storage when conversations must survive process restarts.
+## Files
 
-## Structured state and traces
-
-Each specialist has its own small state:
-
-| State | Fields |
+| File | Responsibility |
 |---|---|
-| `identity_state` | Extracted name/email and successfully matched customer ID |
-| `order_state` | Executed topic, model-proposed topic, topic source, and authorized order record |
-| `policy_state` | Selected topic and policy version |
+| `src/prompts.py` | Prompts for supervisor, identity, order, and policy agents |
+| `src/models.py` | Supervisor qwen3:4b; specialists qwen3:0.6b |
+| `src/objects.py` | Structured model outputs and common agent result |
+| `src/state.py` | Shared state and specialist substates |
+| `src/nodes.py` | Agent logic, human interrupts, explicit item/condition input |
+| `src/graphs.py` | Routing and checkpoint-aware continuation |
+| `src/tools.py` | Active dataset, authorized lookups, policy retrieval |
+| `src/retail_rules.py` | Read-only v2 item return decisions |
 
-Shared state retains messages, extracted identifiers, routing, the pending
-question, `pending_agent` (the node awaiting a reply), the original
-`customer_request`, assigned `order_topic`, and the latest `agent_result`. A result contains agent, status,
-reason code, customer message, optional question, references, evidence IDs, and
-an optional error type. Status distinguishes `completed`, `needs_information`,
-`denied`, and `failed`; a policy denial is not an operational failure.
+## Supported behavior
 
-For later evaluation/recovery:
+- **Identity:** unique full-name or email matching, ignoring case and surrounding
+  whitespace. Duplicate names require email. Explicit email replies do not depend
+  on model extraction. Corrections replace stale inputs. A typed customer ID is
+  not proof of identity. This is prototype identification, not production login.
+- **Ownership:** order tools search only the identified customer's orders,
+  including their second or later order. Unknown and inaccessible orders get the
+  same generic unavailable response. Optional `verified_user_id` is trusted
+  application input; otherwise lookup sets `identity_state.customer_id`.
+- **Status:** order/item and split-shipment facts, actual delivery dates, and
+  recorded estimates labeled as estimates. No invented shipping updates.
+- **Returns:** clarify item/quantity when ambiguous; check captured payment,
+  delivered units, previous/pending returns, category windows, membership at
+  purchase, final sale, condition, packaging, and hygiene seals. Calculate paid
+  merchandise value after discounts without claiming an approved refund.
+- **Damage:** reports within seven days require review, including perishable and
+  final-sale items. Late damage reports do not automatically get an exception.
+- **Cancellation:** check pending status and explain eligibility only.
+- **Policy:** public returns, refunds, cancellation, shipping, and identification
+  rules, retrieved from the same versioned policy as the active dataset.
 
-- `supervisor_history`: classification/routing decisions and human-resume events
-  marked `source: human_resume`, including the specialist being continued.
-- `agent_history`: specialist results and supervisor failures/unsupported outcomes.
-- `tool_history`: unique evidence ID, tool name, arguments, result or error type,
-  start time, and duration. Agent evidence references these IDs.
-- `graph.get_state_history(config)`: checkpoint snapshots across pauses/resumes.
-- Streaming with `stream_mode="updates"`: node-by-node updates.
+The supervisor saves the original request and its operation before collecting
+identity. Model-proposed and executed topics are recorded separately. Names,
+emails, and clarification answers cannot silently change a status request into a
+return request. The original order/item selectors and later corrections remain
+in conversation state across human interruptions.
 
-Models and tools use native LangChain run tracing. Model runs carry the
-`retail-v4` prompt version; tool run metadata links back to the state evidence ID. Attach callbacks through the
-run config or enable LangSmith tracing (`LANGSMITH_TRACING=true`, secure
-`LANGSMITH_API_KEY`, `LANGSMITH_PROJECT`) before execution for model inputs,
-outputs, exceptions, timing, parent/child runs, and model usage when Ollama
-provides it. `order_state.model_topic` and `order_state.topic` retain any
-disagreement between the small model and the executed supervisor task, so a
-corrected classification remains visible to evaluation. State summaries are
-not a complete model trace. Invalid structured
-outputs, tool errors, and model failures have separate reason codes. No Matrace
-adapter, metric scoring, or automatic recovery is implemented yet.
+Any missing required input returns `needs_information` and pauses in the
+supervisor. Resume with `Command(resume="the human reply")` using the same thread.
+The saved specialist then continues without another supervisor classification.
+`InMemorySaver` is process-local; persistent storage is needed across restarts.
 
-Tool histories contain customer information; keep them scoped to the conversation.
-Expected scenario outcomes are evaluator inputs and are never sent to the models.
+## Remaining limits
 
-## Data and validation
+The application is **read-only**. It does not implement action confirmations,
+mutations, review-case submission, refund payments, automatic retries, or
+idempotency/reconciliation. Do not expect cancellation/return submission or
+injected-recovery acceptance cases to complete. Public policy can describe these
+requirements without claiming the actions are implemented.
 
-`evaluation/simple-retail/` contains exactly 10 fictional customers, each with one
-order, five scenarios, and the versioned policy. Tools use paths relative to the
-source files, so startup does not depend on the shell working directory. Return
-checks use the fixture date **2026-11-14**, not the host clock. The Python rule
-implementation and policy version must be updated together when rules change.
+Explicit English item IDs, unique full product names, numeric quantities, and
+simple condition answers are supported. Ambiguous or missing data requires
+clarification. Return decisions use the fixed fixture clock, not today's host
+clock. Dataset records are never changed by these tools.
+
+## Traces and evaluation
+
+- `messages`: customer inputs, questions, human replies, and agent responses.
+- `supervisor_history`: classified tasks and `human_resume` continuation events.
+- `agent_history`: structured outcomes and failure categories.
+- `tool_history`: evidence IDs, arguments, results/errors, timing.
+- `order_state`: executed/model topics, authorized order, and eligibility result.
+- `graph.get_state_history(config)`: snapshots across checkpoints and interruptions.
+
+Model runs carry prompt version `retail-v5`. Tool run metadata links to state
+through evidence IDs. Attach LangChain callbacks or enable LangSmith tracing
+before execution for full model inputs/outputs, exceptions, run relationships,
+and usage metadata when supplied by Ollama. Credentials belong in secure
+settings. State summaries are not complete model traces. No Matrace adapter or
+DeepEval scoring is implemented yet.
+
+## Dataset and tests
+
+The older `evaluation/retail-scenarios-v1` branch was used only as a reference;
+its files were not imported. V2 uses the three files `customers.json`, `policy.md`,
+and `scenarios.json`. The scenarios describe expected outcomes, not model scores.
+
+`implementation_status` distinguishes `read_only_supported`, `requires_mutations`,
+and `requires_recovery`. All cases remain `execution_status: not_run` for live
+model evaluation. Mutation and fault-injection expectations remain future targets.
+Never feed expected outcomes, private fixture records, or injected failures into
+model prompts. Give every scenario fresh fixture state and a new thread.
 
 ```bash
 .venv/bin/python -m unittest discover -s tests -v
 ```
 
-Tests execute the real graph, checkpointing, and dataset tools with controlled
-model responses. They check routing, interruptions, name/email matching,
-ownership, eligibility boundaries, policy answers, failure categories, trace
-links, and absence of dataset mutations. They do not measure live model quality.
-
-## Version 2 evaluation specification
-
-New assets live under `evaluation/retail-v2/`. The old reference branch was read
-for ideas; its evaluation files were not imported. The existing application and
-`evaluation/simple-retail/` remain unchanged and runnable.
-
-- `customers.json`: 20 fictional profiles, 30 orders, line items, quantities,
-  discounts, shipping facts, membership-at-purchase, and return/refund history.
-  Two customers deliberately share the name Alex Morgan and have different emails.
-- `policy.md`: 10 rules covering identity, ownership, item selection, category
-  windows, Plus membership, exclusions, damage review, refunds, shipments,
-  confirmation, and recovery. Version `retail-v2.0`, fixture date 2026-11-15.
-- `scenarios.json`: 30 development cases with successive human messages, trusted
-  harness context, item/order references, policy rules, expected results/database
-  changes, and controlled fault-injection specifications. Each case is tagged
-  with relevant dimensions from the seven-part evaluation plan.
-
-Start every case with fresh fixture state and a new thread. `context.customer_id`
-is trusted harness input; when null, the conversation must identify the customer.
-`lookup_customer_id` is an evaluator-only expected match, not an input to identity.
-Messages include answers to clarification/confirmation and must be fed in sequence.
-`expected`, `return_check`, and fault injections are evaluator-only data; do not
-put them in model prompts. The partial-return example's 2300 cents is merchandise
-value only, before applicable tax; approval and bank posting remain separate.
-
-**These are acceptance targets, not passing application tests.** Every v2 scenario
-is marked `requires_v2_runtime` and `not_run`. The current tools still expect one
-order per simple customer and do not implement item-level lookup, membership
-windows, review, action confirmation/mutation, retries, or idempotency. Do not point
-`src/tools.py` at these files until that support is added. V2 statuses/reason codes
-are target vocabulary and are not all accepted by the current `AgentResult` schema.
-No DeepEval scoring or model benchmark has been run for this dataset.
-
-The version-2 integrity tests check counts, references, chronology, totals,
-return-rule expectations, and cancellation/recovery consistency:
-
-```bash
-.venv/bin/python -m unittest discover -s tests -p 'test_retail_v2_data.py' -v
-```
+Tests cover baseline compatibility, v2 integrity, and v2 runtime behavior. Runtime
+tests use real data, tools, graphs, and checkpoints with controlled model outputs;
+they do not establish live Ollama accuracy. The old baseline tests explicitly
+select `simple-retail` so passing them cannot hide a default-dataset mismatch.

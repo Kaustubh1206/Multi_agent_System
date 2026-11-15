@@ -3,7 +3,7 @@
   "dataset_version": "retail-v2.0",
   "policy_version": "retail-v2.0",
   "evaluation_date": "2026-11-15",
-  "usage": "Acceptance specifications, not passing model tests. Fresh fixture state and thread per scenario. Context customer_id is trusted harness input; otherwise name/email lookup must resolve a unique customer. messages are successive human turns; expected fields and private fixture data must never enter model prompts. Fault injection is performed by the future harness, not by customer text. Current src/tools.py remains connected to simple-retail, not these files.",
+  "usage": "Acceptance specifications, not passing model tests. Fresh fixture state and thread per scenario. Context customer_id is trusted harness input; otherwise name/email lookup must resolve a unique customer. messages are successive human turns; expected fields and private fixture data must never enter model prompts. Fault injection is performed by the future harness, not by customer text. Current tools read this v2 dataset for read-only identification, status, policy, and eligibility. Mutations and injected recovery flows remain unimplemented. implementation_status indicates runtime capability, not a passing live model evaluation.",
   "scenarios": [
     {
       "id": "V2-01",
@@ -36,7 +36,7 @@
         ],
         "database_changes": []
       },
-      "implementation_status": "requires_v2_runtime",
+      "implementation_status": "read_only_supported",
       "execution_status": "not_run",
       "lookup_customer_id": "CUS-201",
       "evaluation_dimensions": [
@@ -76,7 +76,7 @@
         ],
         "database_changes": []
       },
-      "implementation_status": "requires_v2_runtime",
+      "implementation_status": "read_only_supported",
       "execution_status": "not_run",
       "lookup_customer_id": "CUS-209",
       "evaluation_dimensions": [
@@ -115,7 +115,7 @@
         ],
         "database_changes": []
       },
-      "implementation_status": "requires_v2_runtime",
+      "implementation_status": "read_only_supported",
       "execution_status": "not_run",
       "resolved_order_id": "ORD-2022",
       "evaluation_dimensions": [
@@ -153,7 +153,7 @@
         ],
         "database_changes": []
       },
-      "implementation_status": "requires_v2_runtime",
+      "implementation_status": "read_only_supported",
       "execution_status": "not_run",
       "evaluation_dimensions": [
         "routing",
@@ -189,7 +189,7 @@
         ],
         "database_changes": []
       },
-      "implementation_status": "requires_v2_runtime",
+      "implementation_status": "read_only_supported",
       "execution_status": "not_run",
       "evaluation_dimensions": [
         "routing",
@@ -225,7 +225,7 @@
         ],
         "database_changes": []
       },
-      "implementation_status": "requires_v2_runtime",
+      "implementation_status": "read_only_supported",
       "execution_status": "not_run",
       "evaluation_dimensions": [
         "routing",
@@ -262,7 +262,7 @@
         ],
         "database_changes": []
       },
-      "implementation_status": "requires_v2_runtime",
+      "implementation_status": "read_only_supported",
       "execution_status": "not_run",
       "return_check": {
         "expected_eligibility": "eligible",
@@ -304,7 +304,7 @@
         ],
         "database_changes": []
       },
-      "implementation_status": "requires_v2_runtime",
+      "implementation_status": "read_only_supported",
       "execution_status": "not_run",
       "return_check": {
         "expected_eligibility": "ineligible",
@@ -346,7 +346,7 @@
         ],
         "database_changes": []
       },
-      "implementation_status": "requires_v2_runtime",
+      "implementation_status": "read_only_supported",
       "execution_status": "not_run",
       "return_check": {
         "expected_eligibility": "eligible",
@@ -388,7 +388,7 @@
         ],
         "database_changes": []
       },
-      "implementation_status": "requires_v2_runtime",
+      "implementation_status": "read_only_supported",
       "execution_status": "not_run",
       "return_check": {
         "expected_eligibility": "ineligible",
@@ -430,7 +430,7 @@
         ],
         "database_changes": []
       },
-      "implementation_status": "requires_v2_runtime",
+      "implementation_status": "read_only_supported",
       "execution_status": "not_run",
       "return_check": {
         "expected_eligibility": "eligible",
@@ -472,7 +472,7 @@
         ],
         "database_changes": []
       },
-      "implementation_status": "requires_v2_runtime",
+      "implementation_status": "read_only_supported",
       "execution_status": "not_run",
       "return_check": {
         "expected_eligibility": "ineligible",
@@ -514,7 +514,7 @@
         ],
         "database_changes": []
       },
-      "implementation_status": "requires_v2_runtime",
+      "implementation_status": "read_only_supported",
       "execution_status": "not_run",
       "return_check": {
         "expected_eligibility": "ineligible",
@@ -556,7 +556,7 @@
         ],
         "database_changes": []
       },
-      "implementation_status": "requires_v2_runtime",
+      "implementation_status": "read_only_supported",
       "execution_status": "not_run",
       "return_check": {
         "expected_eligibility": "eligible",
@@ -598,7 +598,7 @@
         ],
         "database_changes": []
       },
-      "implementation_status": "requires_v2_runtime",
+      "implementation_status": "read_only_supported",
       "execution_status": "not_run",
       "return_check": {
         "expected_eligibility": "ineligible",
@@ -640,7 +640,7 @@
         ],
         "database_changes": []
       },
-      "implementation_status": "requires_v2_runtime",
+      "implementation_status": "read_only_supported",
       "execution_status": "not_run",
       "return_check": {
         "expected_eligibility": "review",
@@ -682,7 +682,7 @@
         ],
         "database_changes": []
       },
-      "implementation_status": "requires_v2_runtime",
+      "implementation_status": "read_only_supported",
       "execution_status": "not_run",
       "return_check": {
         "expected_eligibility": "needs_information",
@@ -724,7 +724,7 @@
         ],
         "database_changes": []
       },
-      "implementation_status": "requires_v2_runtime",
+      "implementation_status": "read_only_supported",
       "execution_status": "not_run",
       "return_check": {
         "expected_eligibility": "eligible",
@@ -768,7 +768,7 @@
         ],
         "database_changes": []
       },
-      "implementation_status": "requires_v2_runtime",
+      "implementation_status": "read_only_supported",
       "execution_status": "not_run",
       "return_check": {
         "expected_eligibility": "ineligible",
@@ -810,7 +810,7 @@
         ],
         "database_changes": []
       },
-      "implementation_status": "requires_v2_runtime",
+      "implementation_status": "read_only_supported",
       "execution_status": "not_run",
       "return_check": {
         "expected_eligibility": "ineligible",
@@ -860,7 +860,7 @@
           }
         ]
       },
-      "implementation_status": "requires_v2_runtime",
+      "implementation_status": "requires_mutations",
       "execution_status": "not_run",
       "evaluation_dimensions": [
         "routing",
@@ -898,7 +898,7 @@
         ],
         "database_changes": []
       },
-      "implementation_status": "requires_v2_runtime",
+      "implementation_status": "requires_mutations",
       "execution_status": "not_run",
       "evaluation_dimensions": [
         "routing",
@@ -934,7 +934,7 @@
         ],
         "database_changes": []
       },
-      "implementation_status": "requires_v2_runtime",
+      "implementation_status": "read_only_supported",
       "execution_status": "not_run",
       "evaluation_dimensions": [
         "routing",
@@ -970,7 +970,7 @@
         ],
         "database_changes": []
       },
-      "implementation_status": "requires_v2_runtime",
+      "implementation_status": "read_only_supported",
       "execution_status": "not_run",
       "evaluation_dimensions": [
         "identification",
@@ -1005,7 +1005,7 @@
         ],
         "database_changes": []
       },
-      "implementation_status": "requires_v2_runtime",
+      "implementation_status": "read_only_supported",
       "execution_status": "not_run",
       "unknown_order": true,
       "evaluation_dimensions": [
@@ -1043,7 +1043,7 @@
         ],
         "database_changes": []
       },
-      "implementation_status": "requires_v2_runtime",
+      "implementation_status": "read_only_supported",
       "execution_status": "not_run",
       "evaluation_dimensions": [
         "routing",
@@ -1079,7 +1079,7 @@
         ],
         "database_changes": []
       },
-      "implementation_status": "requires_v2_runtime",
+      "implementation_status": "requires_recovery",
       "execution_status": "not_run",
       "fault_injection": {
         "operation": "get_order",
@@ -1131,7 +1131,7 @@
           }
         ]
       },
-      "implementation_status": "requires_v2_runtime",
+      "implementation_status": "requires_recovery",
       "execution_status": "not_run",
       "fault_injection": {
         "operation": "cancel_order",
@@ -1176,7 +1176,7 @@
         ],
         "database_changes": []
       },
-      "implementation_status": "requires_v2_runtime",
+      "implementation_status": "read_only_supported",
       "execution_status": "not_run",
       "lookup_customer_id": "CUS-201",
       "evaluation_dimensions": [
@@ -1215,7 +1215,7 @@
         ],
         "database_changes": []
       },
-      "implementation_status": "requires_v2_runtime",
+      "implementation_status": "requires_recovery",
       "execution_status": "not_run",
       "fault_injection": {
         "operation": "cancel_order",
