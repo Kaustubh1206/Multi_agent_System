@@ -30,6 +30,7 @@ class PolicyState(TypedDict, total=False):
 class RetailState(TypedDict):
     messages: Annotated[list[AnyMessage], add_messages]
     intent: NotRequired[Intent]
+    plan: NotRequired[list[str]]
     customer_request: NotRequired[str]
     order_topic: NotRequired[OrderTopic | None]
     order_id: NotRequired[str | None]

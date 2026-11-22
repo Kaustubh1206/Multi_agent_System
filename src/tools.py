@@ -1,12 +1,9 @@
 """Small read-only tools. File paths do not depend on the shell's working directory."""
 import json
 import re
-from datetime import date
 from pathlib import Path
 
 from langchain_core.tools import tool
-
-from .retail_rules import return_decision
 
 
 SIMPLE_DATA = Path(__file__).resolve().parents[1] / "evaluation" / "simple-retail"
@@ -70,42 +67,3 @@ def get_policy(topic: str) -> dict:
               "cancellations": "- Pending orders"}[topic]
     answer = next(line.removeprefix("- ") for line in text.splitlines() if line.startswith(prefix))
     return {"status": "found", "version": version, "topic": topic, "answer": answer}
-
-
-@tool
-def check_order_eligibility(customer_id: str, order_id: str, topic: str,
-                            item_id: str | None = None, quantity: int | None = None,
-                            condition: str | None = None, packaging: bool | None = None,
-                            seal: str | None = None) -> dict:
-    """Check returns/cancellation rules against the dataset clock and an authorized order."""
-    # Recheck authorization here instead of trusting a model-supplied order record.
-    lookup = get_order.func(customer_id, order_id)
-    if lookup["status"] != "found":
-        return {"status": "unavailable"}
-    order = lookup["order"]
-    policy = get_policy.func(topic)
-    if policy["status"] != "found":
-        return {"status": "unsupported"}
-    result = {"status": "checked", "policy_version": policy["version"], "rule": policy["answer"]}
-    if "items" in order:
-        today = date.fromisoformat(load_customers()["evaluation_date"])
-        result["evaluation_date"] = today.isoformat()
-        if topic == "returns":
-            result.update(return_decision(order, item_id, quantity, today, condition, packaging, seal))
-        elif topic == "cancellations":
-            allowed = order["status"] == "pending"
-            result.update(eligible=allowed, outcome="eligible" if allowed else "ineligible",
-                          reason_code="cancellation_eligible" if allowed else "order_not_cancellable",
-                          explanation=f"Order {order_id} is {order['status']}. " +
-                          ("It is eligible for cancellation after explicit confirmation. " if allowed else "It cannot be cancelled through this flow. ") +
-                          "No cancellation or refund has been performed.")
-        return result
-    if topic == "returns":
-        today = date.fromisoformat(load_customers()["evaluation_date"])
-        age = ((today - date.fromisoformat(order["delivered_on"])).days
-               if order["delivered_on"] else None)
-        eligible = order["status"] == "delivered" and order["returnable"] and age is not None and 0 <= age <= 30
-        result.update(eligible=eligible, days_since_delivery=age, evaluation_date=today.isoformat())
-    elif topic == "cancellations":
-        result.update(eligible=order["status"] == "pending")
-    return result

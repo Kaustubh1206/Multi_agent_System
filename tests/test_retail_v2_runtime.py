@@ -10,7 +10,8 @@ from langgraph.types import Command
 from src.graphs import build_graph
 from src.nodes import return_inputs
 from src.objects import IdentityOutput, OrderOutput, PolicyOutput, SupervisorOutput
-from src.tools import DATA, check_order_eligibility, get_order, get_policy, identify_customer
+from src.nodes import check_order_eligibility
+from src.tools import DATA, get_order, get_policy, identify_customer
 
 
 class RetailV2RuntimeTests(unittest.TestCase):

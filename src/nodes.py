@@ -1,9 +1,10 @@
 import json
 import re
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from time import perf_counter
 from uuid import uuid4
 
+from langchain_core.tools import tool
 from langchain_core.exceptions import OutputParserException
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langgraph.types import interrupt
@@ -14,20 +15,21 @@ from .objects import AgentResult, IdentityOutput, OrderOutput, PolicyOutput, Sup
 from .prompts import (identity_system_prompt, order_system_prompt,
                       policy_system_prompt, supervisor_system_prompt)
 from .state import RetailState
-from .tools import check_order_eligibility, get_order, get_policy, identify_customer
+from . import tools as retail_tools
+from .tools import get_order, get_policy, identify_customer
 
 
 supervisor_llm = supervisor_model.with_structured_output(SupervisorOutput).with_config(
-    run_name="supervisor_decision", metadata={"prompt_version": "retail-v5"}
+    run_name="supervisor_decision", metadata={"prompt_version": "retail-v7"}
 )
 identity_llm = specialist_model.with_structured_output(IdentityOutput).with_config(
-    run_name="identity_extraction", metadata={"prompt_version": "retail-v5"}
+    run_name="identity_extraction", metadata={"prompt_version": "retail-v7"}
 )
 order_llm = specialist_model.with_structured_output(OrderOutput).with_config(
-    run_name="order_classification", metadata={"prompt_version": "retail-v5"}
+    run_name="order_classification", metadata={"prompt_version": "retail-v7"}
 )
 policy_llm = specialist_model.with_structured_output(PolicyOutput).with_config(
-    run_name="policy_classification", metadata={"prompt_version": "retail-v5"}
+    run_name="policy_classification", metadata={"prompt_version": "retail-v7"}
 )
 
 
@@ -108,7 +110,7 @@ def supervisor_node(state: RetailState) -> dict:
         pending = previous_result["agent"]  # Also resume checkpoints made before this field existed.
     if new_messages and pending:
         # A name/email/order-ID answer belongs to the saved task, not a new intent.
-        decision = {"intent": state.get("intent"), "next_agent": state["next_agent"],
+        decision = {"plan": state.get("plan", []), "intent": state.get("intent"), "next_agent": state["next_agent"],
                     "order_id": order_id, "user_id": state.get("user_id"),
                     "customer_request": state.get("customer_request", ""),
                     "order_topic": state.get("order_topic"), "clarification_question": None}
@@ -257,6 +259,121 @@ def order_status_message(order_id, order):
     return message
 
 
+def order_return_decision(order, item_id, quantity, today, condition=None, packaging=None, seal=None):
+    def outcome(kind, reason, message, question=None, **details):
+        return {"outcome": kind, "reason_code": reason, "explanation": message,
+                "question": question, "eligible": kind == "eligible", **details}
+
+    items = order["items"]
+    if not item_id and len(items) > 1:
+        choices = "; ".join(f"{i['item_id']} ({i['product_name']})" for i in items)
+        question = f"Which item would you like to return? {choices}"
+        return outcome("needs_information", "item_required", question, question)
+    item = next((i for i in items if i["item_id"] == item_id), None) if item_id else items[0]
+    if not item:
+        return outcome("ineligible", "item_unavailable", "That item is unavailable in this order.")
+    if not item["delivered_on"] or item["fulfillment_status"] != "delivered":
+        return outcome("ineligible", "item_not_delivered", "This item has not been delivered, so it cannot be returned yet.")
+    if order["payment_status"] != "paid":
+        return outcome("ineligible", "payment_not_captured", "The order has no captured payment available for this return.")
+    available = item["quantity"] - item["returned_quantity"] - item["pending_return_quantity"]
+    if available <= 0:
+        return outcome("ineligible", "return_already_requested", "All units are already returned or pending return; no duplicate return can be requested.")
+    if quantity is None and available > 1:
+        question = f"How many units of {item['item_id']} would you like to return? {available} are available."
+        return outcome("needs_information", "quantity_required", question, question)
+    quantity = 1 if quantity is None else quantity
+    if quantity < 1 or quantity > available:
+        return outcome("ineligible", "invalid_return_quantity", f"Choose between 1 and {available} available units.")
+    age = (today - date.fromisoformat(item["delivered_on"])).days
+    if age < 0:
+        raise ValueError("An item delivery date is in the future")
+    # A damage claim may require review; it never converts directly to approval.
+    actual_condition = (condition if item["condition"] == "unknown" or condition in {"damaged", "used", "tried_on"}
+                        else item["condition"]) or item["condition"]
+    if actual_condition == "damaged":
+        reported = date.fromisoformat(item["damage_reported_on"]) if item["damage_reported_on"] else today
+        report_age = (reported - date.fromisoformat(item["delivered_on"])).days
+        if 0 <= report_age <= 7:
+            return outcome("needs_review", "damage_review_required",
+                           f"Damage was reported {report_age} days after delivery, within the 7-day review window. "
+                           "This requires human review, including for perishable or final-sale goods. "
+                           "No review case has been submitted and no return or refund has been approved.",
+                           days_since_delivery=age, policy_rules=["P6"])
+        return outcome("ineligible", "damage_report_window_expired",
+                       "The 7-day damage-review exception has expired. Discretionary assistance may be requested, but no exception or refund is promised.")
+    if item["final_sale"] or not item["returnable"] or item["category"] == "perishable":
+        reason = "final_sale" if item["final_sale"] else "item_not_returnable"
+        return outcome("ineligible", reason, "This item is excluded from change-of-mind returns.")
+    window = {"standard": 45 if order["membership_at_purchase"] == "plus" else 30,
+              "electronics": 14, "hygiene": 30}[item["category"]]
+    if age > window:
+        return outcome("ineligible", "return_window_expired",
+                       f"This item was delivered {age} days ago, outside its {window}-day return window.")
+    actual_packaging = False if packaging is False else (packaging if item["original_packaging"] is None else item["original_packaging"])
+    actual_seal = "opened" if seal == "opened" else (seal if item["seal"] == "unknown" else item["seal"])
+    if actual_condition == "unknown" or actual_packaging is None or (item["category"] == "hygiene" and actual_seal == "unknown"):
+        question = "Is the item unused or only tried on, with its original packaging? For hygiene items, is it still sealed?"
+        return outcome("needs_information", "item_condition_required", question, question)
+    if item["category"] == "hygiene" and actual_seal != "sealed":
+        return outcome("ineligible", "opened_hygiene_item", "Opened hygiene items cannot be returned for change of mind.")
+    acceptable = {"unused", "tried_on"} if item["category"] == "standard" else {"unused"}
+    if actual_condition not in acceptable or not actual_packaging:
+        return outcome("ineligible", "item_condition_ineligible", "The item's condition or packaging does not meet the return policy.")
+    value = item["line_total_cents"] * quantity
+    details = {"item_id": item["item_id"], "quantity": quantity, "days_since_delivery": age,
+               "window_days": window, "policy_rules": ["P4", "P5"]}
+    if value % item["quantity"] == 0:
+        details["merchandise_value_cents"] = value // item["quantity"]
+    value_note = ""
+    if "merchandise_value_cents" in details:
+        cents = details["merchandise_value_cents"]
+        value_note = f" Paid merchandise value: USD {cents // 100}.{cents % 100:02d} before applicable tax; this is not an approved refund."
+    return outcome("eligible", "return_eligible",
+                   f"{quantity} unit(s) of {item['item_id']} are eligible: delivered {age} days ago, "
+                   f"within the {window}-day window. Explicit confirmation is required before submission. "
+                   "No return has been requested or refund issued." + value_note, **details)
+
+
+@tool
+def check_order_eligibility(customer_id: str, order_id: str, topic: str,
+                            item_id: str | None = None, quantity: int | None = None,
+                            condition: str | None = None, packaging: bool | None = None,
+                            seal: str | None = None) -> dict:
+    """Check returns/cancellation rules against the dataset clock and an authorized order."""
+    # Recheck authorization here instead of trusting a model-supplied order record.
+    lookup = get_order.func(customer_id, order_id)
+    if lookup["status"] != "found":
+        return {"status": "unavailable"}
+    order = lookup["order"]
+    policy = get_policy.func(topic)
+    if policy["status"] != "found":
+        return {"status": "unsupported"}
+    result = {"status": "checked", "policy_version": policy["version"], "rule": policy["answer"]}
+    if "items" in order:
+        today = date.fromisoformat(retail_tools.load_customers()["evaluation_date"])
+        result["evaluation_date"] = today.isoformat()
+        if topic == "returns":
+            result.update(order_return_decision(order, item_id, quantity, today, condition, packaging, seal))
+        elif topic == "cancellations":
+            allowed = order["status"] == "pending"
+            result.update(eligible=allowed, outcome="eligible" if allowed else "ineligible",
+                          reason_code="cancellation_eligible" if allowed else "order_not_cancellable",
+                          explanation=f"Order {order_id} is {order['status']}. " +
+                          ("It is eligible for cancellation after explicit confirmation. " if allowed else "It cannot be cancelled through this flow. ") +
+                          "No cancellation or refund has been performed.")
+        return result
+    if topic == "returns":
+        today = date.fromisoformat(retail_tools.load_customers()["evaluation_date"])
+        age = ((today - date.fromisoformat(order["delivered_on"])).days
+               if order["delivered_on"] else None)
+        eligible = order["status"] == "delivered" and order["returnable"] and age is not None and 0 <= age <= 30
+        result.update(eligible=eligible, days_since_delivery=age, evaluation_date=today.isoformat())
+    elif topic == "cancellations":
+        result.update(eligible=order["status"] == "pending")
+    return result
+
+
 def order_node(state: RetailState) -> dict:
     events = []
     owner = customer_id(state)
@@ -303,7 +420,7 @@ def order_node(state: RetailState) -> dict:
                 references=references, evidence=[events[-1]["id"]],
             ), events, order_state=order_state)
         order = lookup["order"]
-        status, reason = "completed", "order_status_found"
+        status, reason = "completed", "partial_shipment" if order["status"] == "partially_shipped" else "order_status_found"
         if topic == "status":
             message = order_status_message(order_id, order)
         else:
