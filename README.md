@@ -113,8 +113,8 @@ Model runs carry prompt version `retail-v7`. Tool run metadata links to state
 through evidence IDs. Attach LangChain callbacks or enable LangSmith tracing
 before execution for full model inputs/outputs, exceptions, run relationships,
 and usage metadata when supplied by Ollama. Credentials belong in secure
-settings. State summaries are not complete model traces. No Matrace adapter or
-DeepEval scoring is implemented yet.
+settings. State summaries are not complete model traces. No Matrace adapter is implemented yet. The DeepEval workflow is documented in
+[evaluation/deepeval/README.md](evaluation/deepeval/README.md).
 
 ## Dataset and tests
 
@@ -136,3 +136,27 @@ Tests cover baseline compatibility, v2 integrity, and v2 runtime behavior. Runti
 tests use real data, tools, graphs, and checkpoints with controlled model outputs;
 they do not establish live Ollama accuracy. The old baseline tests explicitly
 select `simple-retail` so passing them cannot hide a default-dataset mismatch.
+
+## Run the seven-metric evaluation
+
+The evaluation uses the latest retail-v2 dataset and the metric choices from
+`Kaustubh1206/Agentic_Customer_Evaluation`: task completion, step efficiency,
+plan quality, plan adherence, argument correctness, tool correctness, and answer
+correctness. Policy calculations remain in the order node. Golden expected
+answers remain evaluator-only; they are never loaded as MAS prompt examples.
+
+With Ollama running and the actor models installed:
+
+```bash
+ollama pull qwen3:8b
+uv run --frozen python -m evaluation.deepeval.collect --output evaluation/deepeval/reports/baseline.json
+uv run --project evaluation/deepeval --frozen python -m evaluation.deepeval.score evaluation/deepeval/reports/baseline.json
+```
+
+The scorer has an isolated locked environment and uses a local Ollama judge by
+default, without an API key. It grades the saved execution without rerunning the
+MAS. Results include metric reasons, deterministic checks, explicit coverage,
+and skips/errors. Twenty-five read-only cases are runnable; five action/recovery
+cases remain unsupported. Missing plans are not awarded perfect plan scores.
+See the evaluator runbook for installation, individual cases, repeats, alternate
+judges, evidence limits, and test commands. No live benchmark score is claimed.

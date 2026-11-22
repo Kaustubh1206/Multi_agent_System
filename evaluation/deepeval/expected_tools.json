@@ -1,0 +1,102 @@
+{
+  "V2-01": [
+    "identify_customer",
+    "identify_customer",
+    "get_order"
+  ],
+  "V2-02": [
+    "identify_customer",
+    "identify_customer",
+    "get_order"
+  ],
+  "V2-03": [
+    "get_order"
+  ],
+  "V2-04": [
+    "get_policy"
+  ],
+  "V2-05": [
+    "get_policy"
+  ],
+  "V2-06": [
+    "get_order"
+  ],
+  "V2-07": [
+    "get_order",
+    "check_order_eligibility"
+  ],
+  "V2-08": [
+    "get_order",
+    "check_order_eligibility"
+  ],
+  "V2-09": [
+    "get_order",
+    "check_order_eligibility"
+  ],
+  "V2-10": [
+    "get_order",
+    "check_order_eligibility"
+  ],
+  "V2-11": [
+    "get_order",
+    "check_order_eligibility"
+  ],
+  "V2-12": [
+    "get_order",
+    "check_order_eligibility"
+  ],
+  "V2-13": [
+    "get_order",
+    "check_order_eligibility"
+  ],
+  "V2-14": [
+    "get_order",
+    "check_order_eligibility"
+  ],
+  "V2-15": [
+    "get_order",
+    "check_order_eligibility"
+  ],
+  "V2-16": [
+    "get_order",
+    "check_order_eligibility"
+  ],
+  "V2-17": [
+    "get_order",
+    "check_order_eligibility"
+  ],
+  "V2-18": [
+    "get_order",
+    "check_order_eligibility"
+  ],
+  "V2-19": [
+    "get_order",
+    "check_order_eligibility",
+    "get_order",
+    "check_order_eligibility"
+  ],
+  "V2-20": [
+    "get_order",
+    "check_order_eligibility"
+  ],
+  "V2-23": [
+    "get_order",
+    "check_order_eligibility"
+  ],
+  "V2-24": [
+    "get_order"
+  ],
+  "V2-25": [
+    "get_order"
+  ],
+  "V2-26": [
+    "get_order",
+    "check_order_eligibility"
+  ],
+  "V2-29": [
+    "identify_customer",
+    "identify_customer",
+    "identify_customer",
+    "get_order"
+  ]
+}
