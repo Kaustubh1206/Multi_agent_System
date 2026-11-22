@@ -1,32 +1,17 @@
-
-# LangChain Core
-langchain
-langchain-core
-langchain_community
-# OpenAI Integration
-langchain-openai
-openai
-
-# Anthropic Integration
-langchain-anthropic
-
-
-
-langchain_groq
-
-# Hugging Face Integration
-langchain-huggingface
-transformers
-huggingface-hub
-
-# Environment Variable Management
-python-dotenv
-
-# Machine Learning Utilities
-numpy
-scikit-learn
-
-
-
-
-streamlit
+# pip alternative. For reproducible setup use: uv sync --frozen
+deepeval==4.3.4
+dotenv>=0.9.9
+langchain>=1.4.7
+langchain-anthropic>=1.7.7
+langchain-community>=0.4.2
+langchain-core>=1.7.0
+langchain-groq>=1.1.3
+langchain-ollama>=1.1.0
+langchain-openai>=1.7.3
+langgraph>=1.2.16
+langgraph-cli[inmem]>=0.4.40
+numpy>=2.5.4
+openai>=3.41.0
+python-dotenv>=1.2.4
+scikit-learn>=1.9.1
+streamlit>=1.66.1

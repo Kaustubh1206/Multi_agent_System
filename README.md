@@ -114,7 +114,7 @@ through evidence IDs. Attach LangChain callbacks or enable LangSmith tracing
 before execution for full model inputs/outputs, exceptions, run relationships,
 and usage metadata when supplied by Ollama. Credentials belong in secure
 settings. State summaries are not complete model traces. No Matrace adapter is implemented yet. The DeepEval workflow is documented in
-[evaluation/deepeval/README.md](evaluation/deepeval/README.md).
+[Evaluations/README.md](Evaluations/README.md).
 
 ## Dataset and tests
 
@@ -137,26 +137,32 @@ tests use real data, tools, graphs, and checkpoints with controlled model output
 they do not establish live Ollama accuracy. The old baseline tests explicitly
 select `simple-retail` so passing them cannot hide a default-dataset mismatch.
 
-## Run the seven-metric evaluation
+## Run DeepEval directly
 
-The evaluation uses the latest retail-v2 dataset and the metric choices from
-`Kaustubh1206/Agentic_Customer_Evaluation`: task completion, step efficiency,
-plan quality, plan adherence, argument correctness, tool correctness, and answer
-correctness. Policy calculations remain in the order node. Golden expected
-answers remain evaluator-only; they are never loaded as MAS prompt examples.
-
-With Ollama running and the actor models installed:
+All application and evaluation dependencies now use the root environment:
 
 ```bash
-ollama pull qwen3:8b
-uv run --frozen python -m evaluation.deepeval.collect --output evaluation/deepeval/reports/baseline.json
-uv run --project evaluation/deepeval --frozen python -m evaluation.deepeval.score evaluation/deepeval/reports/baseline.json
+uv sync --frozen
+source .venv/bin/activate
+python Evaluations/task_completion.py
+# Or run all seven metrics on each MAS response:
+python Evaluations/eval_all.py
 ```
 
-The scorer has an isolated locked environment and uses a local Ollama judge by
-default, without an API key. It grades the saved execution without rerunning the
-MAS. Results include metric reasons, deterministic checks, explicit coverage,
-and skips/errors. Twenty-five read-only cases are runnable; five action/recovery
-cases remain unsupported. Missing plans are not awarded perfect plan scores.
-See the evaluator runbook for installation, individual cases, repeats, alternate
-judges, evidence limits, and test commands. No live benchmark score is claimed.
+The `Evaluations/` folder follows the reference repository: `dataset.py` contains
+25 explicit task inputs and expected answers from the latest retail-v2 scenarios,
+`model.py` configures the Ollama judge, and there is a separate Python entrypoint
+for each of seven parameters. Every script runs the MAS and shows native DeepEval
+progress and results. No saved baseline, trace collection command, separate scoring
+command, or nested evaluation environment is needed.
+
+The default judge is `llama3.1:8b`. Select the supervisor-sized judge with
+`python Evaluations/eval_all.py --model qwen3:4b`. Judge quality has not been
+benchmarked here; inspect reasons against human-reviewed cases. With Ollama
+running, `--case V2-16` or `--limit 3` provides a small first run.
+
+The parameters are task completion, step efficiency, plan quality, plan adherence,
+argument correctness, tool correctness, and answer correctness. Five unimplemented
+action/recovery cases remain explicitly skipped. Missing plans and judge failures
+cannot become automatic passes. See [Evaluations/README.md](Evaluations/README.md)
+for individual scripts, setup and evidence limits.
