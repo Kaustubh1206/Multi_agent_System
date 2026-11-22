@@ -11,6 +11,7 @@ Intent = Literal["identity", "refund/return", "delivery", "product", "order", "u
 class SupervisorOutput(BaseModel):
     next_agent: AgentName
     intent: Intent
+    plan: list[str] = Field(default_factory=list, description="Short observable action plan, not private reasoning")
     order_topic: OrderTopic | None = None
     order_id: str | None = None
     user_id: str | None = None

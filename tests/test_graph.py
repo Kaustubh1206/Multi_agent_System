@@ -12,7 +12,8 @@ from langgraph.types import Command
 from src.graphs import build_graph
 from src.models import specialist_model, supervisor_model
 from src.objects import AgentResult, IdentityOutput, OrderOutput, PolicyOutput, SupervisorOutput
-from src.tools import SIMPLE_DATA as DATA, check_order_eligibility, identify_customer, load_customers
+from src.nodes import check_order_eligibility
+from src.tools import SIMPLE_DATA as DATA, identify_customer, load_customers
 
 
 class ToolRecorder(BaseCallbackHandler):

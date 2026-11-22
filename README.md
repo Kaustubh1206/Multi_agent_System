@@ -45,10 +45,9 @@ an explanation of the review requirement, not a handoff to a real review service
 | `src/models.py` | Supervisor qwen3:4b; specialists qwen3:0.6b |
 | `src/objects.py` | Structured model outputs and common agent result |
 | `src/state.py` | Shared state and specialist substates |
-| `src/nodes.py` | Agent logic, human interrupts, explicit item/condition input |
+| `src/nodes.py` | Agent logic, order policy checks, human interrupts, item/condition input |
 | `src/graphs.py` | Routing and checkpoint-aware continuation |
 | `src/tools.py` | Active dataset, authorized lookups, policy retrieval |
-| `src/retail_rules.py` | Read-only v2 item return decisions |
 
 ## Supported behavior
 
@@ -72,8 +71,13 @@ an explanation of the review requirement, not a handoff to a real review service
 - **Policy:** public returns, refunds, cancellation, shipping, and identification
   rules, retrieved from the same versioned policy as the active dataset.
 
-The supervisor saves the original request and its operation before collecting
-identity. Model-proposed and executed topics are recorded separately. Names,
+The supervisor saves the original request, a short public action plan, and its
+operation before collecting identity. The plan is observable intended actions,
+not private reasoning. Prompts contain a few invented teaching examples; gold
+evaluation scenarios and expected answers are never loaded into MAS prompts.
+Order calculations and eligibility checks live beside the order node in
+`src/nodes.py`; `src/tools.py` retrieves records and policy text.
+Model-proposed and executed topics are recorded separately. Names,
 emails, and clarification answers cannot silently change a status request into a
 return request. The original order/item selectors and later corrections remain
 in conversation state across human interruptions.
@@ -99,13 +103,13 @@ clock. Dataset records are never changed by these tools.
 ## Traces and evaluation
 
 - `messages`: customer inputs, questions, human replies, and agent responses.
-- `supervisor_history`: classified tasks and `human_resume` continuation events.
+- `supervisor_history`: classified tasks, a public action plan, and `human_resume` continuation events.
 - `agent_history`: structured outcomes and failure categories.
 - `tool_history`: evidence IDs, arguments, results/errors, timing.
 - `order_state`: executed/model topics, authorized order, and eligibility result.
 - `graph.get_state_history(config)`: snapshots across checkpoints and interruptions.
 
-Model runs carry prompt version `retail-v5`. Tool run metadata links to state
+Model runs carry prompt version `retail-v7`. Tool run metadata links to state
 through evidence IDs. Attach LangChain callbacks or enable LangSmith tracing
 before execution for full model inputs/outputs, exceptions, run relationships,
 and usage metadata when supplied by Ollama. Credentials belong in secure
