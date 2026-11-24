@@ -97,7 +97,7 @@ Edit those files to tune these two metrics. The other five constructors remain
 in `metrics.py`, with their own direct command entrypoints. Every run still uses
 native `deepeval.evaluate` and its terminal reporting.
 
-The protocol is **`answer-task-v2`**, with MAS prompts **`retail-v8`**. Answer
+The protocol is **`answer-task-v2`**, with MAS prompts **`retail-v9`**. Answer
 Correctness grades only `customer_message`, like the reference repo's extraction
 of `structured_response.answer`. It no longer grades serialized internal result
 fields as customer statements. Reference answers describe final replies; earlier
@@ -111,6 +111,12 @@ and task scope changed, so new scores are not directly comparable to the old
 report. Keep [1_Evaluation.md](1_Evaluation.md) as the original and read the
 [25-case analysis](1_Evaluation_analysis.md) for findings and limits. Save new
 output separately. A better judge score alone does not establish better behavior.
+
+The [second-run review](2_Evaluation_analysis.md) covers the remaining five
+Answer Correctness failures and the shorter replies. On `evaluation/tau-retail`,
+the [τ-bench source probes](../evaluation/tau-retail/README.md) run source-backed
+status/identity/ownership questions without adding transactional tools. Their
+scores are labeled separately from both the 25-task suite and native τ-bench.
 
 ## Tasks and expected outcomes
 

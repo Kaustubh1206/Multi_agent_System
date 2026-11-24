@@ -150,6 +150,8 @@ SKIPPED_TASKS = [task for task in SCENARIOS if task["implementation_status"] != 
 
 def expected_tools(task):
     """Independent expected tool sequence; never inferred from the MAS response."""
+    if "expected_tool_names" in task:
+        return [ToolCall(name=name) for name in task["expected_tool_names"]]
     sid = task["id"]
     if task["expected"]["agent"] == "policy":
         names = ["get_policy"]

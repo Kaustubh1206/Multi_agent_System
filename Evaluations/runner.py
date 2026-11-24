@@ -1,5 +1,6 @@
 """Run the MAS and DeepEval directly in one process; no saved trace collection step."""
 import argparse
+import copy
 import json
 import sys
 import time
@@ -9,6 +10,8 @@ from uuid import uuid4
 from .model import build_judge, eval_model, ollama_url
 from .dataset import DATA, TASKS, SKIPPED_TASKS, golden
 from .metrics import NAMES, PLAN_METRICS, build_metrics
+from src.prompts import PROMPT_VERSION
+from src.tools import customer_dataset
 
 from deepeval import evaluate
 from deepeval.evaluate import AsyncConfig, CacheConfig, DisplayConfig, ErrorConfig
@@ -64,7 +67,16 @@ def policy_context(task):
                           for rule in task["policy_rules"] if rule in sections)
 
 
-def run_mas(task, graph_factory=None):
+def run_mas(task, graph_factory=None, *, fixture=None, policy_text=None):
+    if fixture is not None:
+        # Isolate each probe without replacing any model, graph node or tool.
+        isolated = copy.deepcopy(fixture)
+        with customer_dataset(isolated):
+            return _run_mas(task, graph_factory, isolated, policy_text)
+    return _run_mas(task, graph_factory, None, policy_text)
+
+
+def _run_mas(task, graph_factory, supplied_fixture, policy_text):
     if graph_factory is None:
         from src.graphs import build_graph
         graph_factory = build_graph
@@ -76,7 +88,11 @@ def run_mas(task, graph_factory=None):
     command = {"messages": [HumanMessage(content=messages[0])]}
     if task["context"]["customer_id"]:
         command["verified_user_id"] = task["context"]["customer_id"]
-    before = (DATA / "customers.json").read_bytes()
+    def fixture_bytes():
+        return (json.dumps(supplied_fixture, sort_keys=True).encode() if supplied_fixture is not None
+                else (DATA / "customers.json").read_bytes())
+
+    before = fixture_bytes()
     children = []
     while True:
         for update in graph.stream(command, config, stream_mode="updates"):
@@ -131,12 +147,12 @@ def run_mas(task, graph_factory=None):
                     "policy_version": fixture.get("policy_version"), "customer_id": owner,
                     "authorized_order": authorized}
     goal = ("Request: " + messages[0] + "\n" + session_note +
-            "\nRequired outcome: " + task["expected"]["status"] +
+            "\nExpected internal status (not required customer wording): " + task["expected"]["status"] +
             "\n" + "\n".join(task["expected"]["response_requirements"]))
     case = LLMTestCase(name=task["id"], input=case_input,
         actual_output=customer_answer, expected_output=gold.expected_output,
-        context=["AUTHORITATIVE FIXTURE CONTEXT (use its fixed date, not the host date): " + json.dumps(fixture_meta),
-                 "APPLICABLE POLICY:\n" + policy_context(task),
+        context=["AUTHORITATIVE FIXTURE CONTEXT (dates, when supplied, take precedence over the host date): " + json.dumps(fixture_meta),
+                 "APPLICABLE POLICY:\n" + (policy_text if policy_text is not None else policy_context(task)),
                  "OBSERVED CONVERSATION (earlier questions are not required again in the final answer): " + json.dumps(conversation)],
         tools_called=[ToolCall(name=e["tool"], input_parameters=e["arguments"], output=e.get("result")) for e in tool_calls],
         expected_tools=gold.expected_tools,
@@ -150,7 +166,7 @@ def run_mas(task, graph_factory=None):
     checks = {field: result.get(field) == task["expected"][field] for field in ("agent", "status", "reason_code")}
     checks["final_response_present"] = bool(result.get("customer_message"))
     checks["expected_stop"] = bool(snapshot.next) == (task["expected"]["status"] == "needs_information")
-    checks["fixture_unchanged"] = before == (DATA / "customers.json").read_bytes()
+    checks["fixture_unchanged"] = before == fixture_bytes()
     checks["all_replies_consumed"] = len(supplied) == len(messages)
     if oid and task["expected"]["agent"] == "order":
         checks["order_retained"] = state.get("order_id") == oid
@@ -182,7 +198,9 @@ def evaluate_cases(cases, names, judge):
             async_config=AsyncConfig(run_async=False),
             cache_config=CacheConfig(use_cache=False, write_cache=False),
             error_config=ErrorConfig(ignore_errors=True),
-            hyperparameters={"judge_model": judge.get_model_name(), "evaluation_protocol": "answer-task-v2", "mas_prompt_version": "retail-v8"},
+            hyperparameters={"judge_model": judge.get_model_name(),
+                "evaluation_protocol": ",".join(sorted({(case.metadata or {}).get("evaluation_protocol", "answer-task-v2") for case in selected})),
+                "mas_prompt_version": PROMPT_VERSION},
             display_config=DisplayConfig(show_indicator=True, print_results=True,
                                          truncate_passing_cases=False, inspect_after_run=False))
         results.extend(result.test_results)

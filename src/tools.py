@@ -1,6 +1,8 @@
 """Small read-only tools. File paths do not depend on the shell's working directory."""
 import json
 import re
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 
 from langchain_core.tools import tool
@@ -8,9 +10,22 @@ from langchain_core.tools import tool
 
 SIMPLE_DATA = Path(__file__).resolve().parents[1] / "evaluation" / "simple-retail"
 DATA = SIMPLE_DATA.parent / "retail-v2"
+_customer_data = ContextVar("customer_data", default=None)
+
+
+@contextmanager
+def customer_dataset(data):
+    """Temporarily supply a read-only fixture; graph worker contexts inherit it."""
+    token = _customer_data.set(data)
+    try:
+        yield
+    finally:
+        _customer_data.reset(token)
 
 
 def load_customers():
+    if (data := _customer_data.get()) is not None:
+        return data
     return json.loads((DATA / "customers.json").read_text())
 
 
@@ -50,8 +65,12 @@ def get_policy(topic: str) -> dict:
     """Read the short versioned policy document for an allowed public topic."""
     if topic not in {"returns", "refunds", "cancellations", "shipping", "identification"}:
         return {"status": "unsupported"}
-    text = (DATA / "policy.md").read_text()
     version = load_customers().get("policy_version", "simple-retail-v1")
+    if version == "tau-status-probes-v1":
+        # These projections support status only. Never apply our retail policy
+        # to a benchmark order with different rules and missing delivery facts.
+        return {"status": "unsupported"}
+    text = (DATA / "policy.md").read_text()
     if f"`{version}`" not in text:
         raise ValueError("Policy document and dataset versions differ")
     if version == "retail-v2.0":

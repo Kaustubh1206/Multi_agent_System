@@ -81,7 +81,7 @@ def customer_id(state):
     return state.get("verified_user_id") or state.get("identity_state", {}).get("customer_id")
 
 
-ORDER_ID = re.compile(r"\bORD-\d+\b", re.IGNORECASE)
+ORDER_ID = re.compile(r"\b(?:ORD-\d+|W\d{7})\b", re.IGNORECASE)
 EMAIL = re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.IGNORECASE)
 
 
@@ -90,7 +90,8 @@ def latest_order_id(messages):
     for message in reversed(messages):
         if isinstance(message, HumanMessage) and isinstance(message.content, str):
             if match := ORDER_ID.search(message.content):
-                return match.group().upper()
+                identifier = match.group().upper()
+                return "#" + identifier if identifier.startswith("W") else identifier
     return None
 
 
@@ -245,12 +246,18 @@ def return_inputs(order, texts):
     return inputs
 
 
-def order_status_message(order_id, order):
+def order_status_message(order_id, order, question=""):
     if "items" not in order:
-        return f"Order {order_id} ({order['product']}) is {order['status']}."
+        product = f" ({order['product']})" if "product" in order else ""
+        return f"Order {order_id}{product} is {order['status']}."
     message = f"Order {order_id} is {order['status']}."
     if order['status'] == 'cancelled':
         return message
+    detailed = any(term in question.casefold() for term in
+                   ("item", "shipment", "tracking", "estimate", "arriv", "when", "detail"))
+    if len(order["items"]) == 1 and not detailed:
+        delivered = order["items"][0]["delivered_on"]
+        return message + (f" Delivered on {delivered}." if delivered else "")
     for item in order["items"]:
         message += f" {item['item_id']} ({item['product_name']}) is {item['fulfillment_status']}."
         if item["delivered_on"]:
@@ -309,6 +316,8 @@ def order_return_decision(order, item_id, quantity, today, condition=None, packa
         reason = "final_sale" if item["final_sale"] else "item_not_returnable"
         explanation = ("This item is marked final sale, so it is excluded from change-of-mind returns."
                        if item["final_sale"] else "This item is marked nonreturnable or is perishable, so it is excluded from change-of-mind returns.")
+        if item["final_sale"]:
+            explanation += " I cannot override that policy. No return has been requested or refund issued."
         return outcome("ineligible", reason, explanation)
     window = {"standard": 45 if order["membership_at_purchase"] == "plus" else 30,
               "electronics": 14, "hygiene": 30}[item["category"]]
@@ -376,8 +385,8 @@ def check_order_eligibility(customer_id: str, order_id: str, topic: str,
             result.update(eligible=allowed, outcome="eligible" if allowed else "ineligible",
                           reason_code="cancellation_eligible" if allowed else "order_not_cancellable",
                           explanation=f"Order {order_id} is {order['status']}. " +
-                          ("It is eligible for cancellation after explicit confirmation. " if allowed else "It cannot be cancelled through this flow. ") +
-                          "No cancellation or refund has been performed.")
+                          ("It is eligible for cancellation after explicit confirmation. No cancellation has been performed."
+                           if allowed else "It cannot be cancelled through this flow."))
         return result
     if topic == "returns":
         today = date.fromisoformat(retail_tools.load_customers()["evaluation_date"])
@@ -438,7 +447,7 @@ def order_node(state: RetailState) -> dict:
         order = lookup["order"]
         status, reason = "completed", "partial_shipment" if order["status"] == "partially_shipped" else "order_status_found"
         if topic == "status":
-            message = order_status_message(order_id, order)
+            message = order_status_message(order_id, order, original_request)
         else:
             selectors = return_inputs(order, active_human_texts(state, original_request)) if topic == "returns" and "items" in order else {}
             eligibility = call_tool(check_order_eligibility,
@@ -502,11 +511,8 @@ def policy_answer(policy, question):
             for row in rows:
                 parts = [part.strip() for part in row.strip("|").split("|")]
                 if len(parts) == 3:
-                    facts.append(f"{parts[0]}: {parts[1]}. Conditions: {parts[2]}.")
+                    facts.append(f"{parts[0]}: {parts[1]}.")
             answer = " ".join(facts)
-            paragraphs = [" ".join(p.split()) for p in text.split("\n\n")]
-            exclusions = next((p for p in paragraphs if p.startswith("Final-sale items")), "")
-            answer += " " + " ".join(re.split(r"(?<=[.!?])\s+", exclusions)[:3])
             return answer.strip()
     if policy["topic"] == "refunds" and any(term in query for term in
             ("when", "how long", "arriv", "shipping", "delivery fee", "posting")) and not any(term in query for term in ("how much", "amount", "discount")):
