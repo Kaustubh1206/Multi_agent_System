@@ -118,6 +118,11 @@ the [τ-bench source probes](../evaluation/tau-retail/README.md) run source-back
 status/identity/ownership questions without adding transactional tools. Their
 scores are labeled separately from both the 25-task suite and native τ-bench.
 
+For original transactional tasks on `evaluation/tau-retail-native`, use the
+[native runner](tau_native/README.md). It has an optional `tau-native` extra in
+the root environment and uses upstream reward evaluation. It does not replace
+these DeepEval scripts or score rewritten probes as native task completion.
+
 ## Tasks and expected outcomes
 
 Edit `TASK_DEFINITIONS` in `dataset.py`: each entry visibly declares the initial

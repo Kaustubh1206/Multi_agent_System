@@ -6,3 +6,5 @@ __pycache__/
 *.pyc
 /evaluation/deepeval/reports/
 .deepeval/
+/.cache/
+/evaluation/tau-native/runs/

@@ -184,3 +184,10 @@ default reviewed 50-task source produces 76 adapted probes; the legacy 114-task
 source produces 118. These are narrower tests, not official benchmark scores.
 The [second evaluation review](Evaluations/2_Evaluation_analysis.md) documents
 the five remaining answer failures and response changes on this branch.
+
+Branch `evaluation/tau-retail-native` adds a separate
+[native τ-bench runtime](Evaluations/tau_native/README.md): original retail
+tasks, the upstream user simulator and transactional tools, explicit customer
+confirmation, fresh databases, and native reward evaluation. Install its optional
+dependencies in the shared root environment with `uv sync --frozen --extra tau-native`.
+The read-only application and probe commands remain available.

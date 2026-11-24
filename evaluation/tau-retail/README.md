@@ -115,4 +115,7 @@ they are not an exact required tool sequence. DeepEval can be supplementary,
 but cannot replace the database end-state and applicable assertion checks while
 retaining official benchmark meaning. See upstream's pinned
 [evaluation documentation](https://github.com/sierra-research/tau2-bench/blob/989d3285ae669e49503324bdb9981bf14fccedeb/docs/evaluation.md).
-That extension is deliberately outside this branch's read-only scope.
+The probe entrypoint deliberately remains read-only. Branch
+`evaluation/tau-retail-native` implements a separate
+[native runtime](../../Evaluations/tau_native/README.md) for those transactional
+tasks; its scores and commands are separate from these probes.

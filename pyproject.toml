@@ -22,3 +22,11 @@ dependencies = [
     "scikit-learn>=1.9.1",
     "streamlit>=1.66.1",
 ]
+
+[project.optional-dependencies]
+tau-native = [
+    "tau2",
+]
+
+[tool.uv.sources]
+tau2 = { git = "https://github.com/sierra-research/tau2-bench", rev = "989d3285ae669e49503324bdb9981bf14fccedeb" }
