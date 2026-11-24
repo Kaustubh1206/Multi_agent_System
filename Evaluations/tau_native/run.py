@@ -268,6 +268,10 @@ def main():
                         "termination": simulation.termination_reason.value,
                     }
                 )
+                print(
+                    f"  Termination: {simulation.termination_reason.value}; native reward: {simulation.reward_info.reward}",
+                    flush=True,
+                )
             except Exception as exc:
                 records.append(
                     {
@@ -287,6 +291,7 @@ def main():
         "successes": sum(r["reward"] == 1 for r in scored),
         "native_mean_reward": sum(r["reward"] for r in scored) / len(scored) if scored else None,
         "complete": len(scored) == len(tasks) * args.trials,
+        "termination_counts": dict(Counter(r.get("termination", "run_error") for r in records)),
         "success_rate_over_requested": sum(r["reward"] == 1 for r in scored)
         / (len(tasks) * args.trials),
         "leaderboard_comparable": False,

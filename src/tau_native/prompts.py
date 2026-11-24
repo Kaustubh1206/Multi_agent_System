@@ -1,6 +1,24 @@
 """Role prompts for the native retail tools, with no task answers or fixture IDs."""
 
-VERSION = "tau-native-v1"
+VERSION = "tau-native-v2"
+
+IDENTITY_EXTRACT = """
+Extract identity fields from the latest CUSTOMER message only. Return the
+IdentityFields object: email, first_name, last_name, zip. Use null for fields
+the customer did not supply. Never answer the customer or discuss their order.
+Use known fields and the last identity question to interpret short replies, but
+return null for old fields that were not repeated in the latest message.
+Never infer a person's name or zip from a user ID such as person_example_1234,
+an order number, product, price, or date. An ID alone is not authentication.
+Use the latest explicitly corrected value if multiple values are mentioned.
+Examples (not database records):
+"I'd like to return a laptop" -> all fields null.
+"My name is Robin Example; my zip is 90210" -> first_name Robin,
+last_name Example, zip 90210, email null.
+"The correct zip is 90211" -> zip 90211; other fields null.
+"I don't remember my email" -> all fields null.
+"My user ID is robin_example_1234" -> all fields null.
+"""
 
 SUPERVISOR = """
 Route the current customer request to identity, order, or policy.
@@ -30,11 +48,7 @@ The source policy, not this project's earlier retail policies, is authoritative.
 """
 
 SPECIALISTS = {
-    "identity": """Locate the user using find_user_id_by_email or
-find_user_id_by_name_zip. Extract values the customer actually supplied; do not
-invent email, names or zip. A user ID in chat alone is not authentication. Ask for
-missing values. A later correction replaces incorrect values. Once matched, the
-runtime loads that user's profile and continues the original request.""",
+    "identity": IDENTITY_EXTRACT,
     "order": """Use get_user_details/get_order_details for the authenticated user.
 Use the profile to find missing order IDs rather than guessing. Read actual
 product variants, availability and prices when selecting replacements. Apply the

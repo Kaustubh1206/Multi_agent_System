@@ -24,10 +24,12 @@ from tau2.data_model.message import (
 )
 from tau2.utils.text_match import fold_for_match
 
-from .objects import Route, Session, Turn
-from .prompts import COMMON, SPECIALISTS, SUPERVISOR, VERSION
+from .objects import IdentityFields, Route, Session, Turn
+from .prompts import COMMON, IDENTITY_EXTRACT, SPECIALISTS, SUPERVISOR, VERSION
 
 AUTH_TOOLS = {"find_user_id_by_email", "find_user_id_by_name_zip"}
+EMAIL = re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.I)
+BARE_ZIP = re.compile(r"(\d{5}(?:-\d{4})?)[.!]?")
 WRITE_TOOLS = {
     "cancel_pending_order",
     "exchange_delivered_order_items",
@@ -134,14 +136,17 @@ class NativeRetailAgent(HalfDuplexAgent[Session]):
         )
         self.models = (supervisor, specialist)
         self.router = supervisor.with_structured_output(Route)
+        self.identity_extractor = specialist.with_structured_output(IdentityFields)
         self.role_tools = {
             "identity": set(self.by_name) & (AUTH_TOOLS | {"transfer_to_human_agents"}),
             "order": set(self.by_name) - AUTH_TOOLS,
             "policy": set(self.by_name) & {"transfer_to_human_agents"},
         }
         self.specialists = {
-            role: specialist.bind_tools([self.by_name[n].openai_schema for n in sorted(names)])
-            for role, names in self.role_tools.items()
+            role: specialist.bind_tools(
+                [self.by_name[n].openai_schema for n in sorted(self.role_tools[role])]
+            )
+            for role in ("order", "policy")
         }
         graph = StateGraph(Turn)
         graph.add_node("supervisor", self.supervise)
@@ -185,10 +190,12 @@ class NativeRetailAgent(HalfDuplexAgent[Session]):
             "tool_requested",
             "confirmation_requested",
             "guard_denied",
+            "identity_missing_fields",
         }:
             detail = (
                 values.get("tool")
                 or values.get("reason")
+                or values.get("question")
                 or values.get("route", {}).get("agent", "")
             )
             print(f"  {agent}: {kind} {detail}", flush=True)
@@ -272,6 +279,8 @@ class NativeRetailAgent(HalfDuplexAgent[Session]):
 
     def specialize(self, turn, role):
         session = turn["session"]
+        if role == "identity":
+            return {"session": session, "response": self.identify(session)}
         context = json.dumps(
             {"authenticated_user_id": session.user_id, "known_order_ids": list(session.orders)},
             sort_keys=True,
@@ -301,6 +310,99 @@ class NativeRetailAgent(HalfDuplexAgent[Session]):
                 raise ValueError("Specialist produced no customer response")
             response = self.text(proposal.content)
         return {"session": session, "response": response}
+
+    def identify(self, session):
+        """Extract small fields; code asks questions and selects the native lookup."""
+        fields = session.identity_fields
+        if isinstance(session.history[-1], UserMessage):
+            text = (session.history[-1].content or "").strip()
+            if EMAIL.fullmatch(text):
+                extracted = IdentityFields(email=text)
+            elif match := BARE_ZIP.fullmatch(text):
+                extracted = IdentityFields(zip=match[1])
+            else:
+                previous_question = next(
+                    (
+                        m.content
+                        for m in reversed(session.history[:-1])
+                        if isinstance(m, AssistantMessage) and m.content
+                    ),
+                    "",
+                )
+                context = "\nKnown customer-supplied fields: " + json.dumps(fields.model_dump())
+                context += "\nLast identity question: " + previous_question
+                extracted = IdentityFields.model_validate(
+                    self.identity_extractor.invoke(
+                        [
+                            SystemMessage(content=IDENTITY_EXTRACT + context),
+                            HumanMessage(content=text),
+                        ]
+                    )
+                )
+            supplied = fold_for_match(text)
+            for key, value in extracted.model_dump().items():
+                if not value or not value.strip():
+                    continue
+                value = value.strip()
+                # Whole-value grounding excludes pieces of a username/order ID.
+                if not re.search(
+                    r"(?<!\w)" + re.escape(fold_for_match(value)) + r"(?!\w)", supplied
+                ):
+                    continue
+                if key in {"first_name", "last_name"} and any(
+                    c.isdigit() or c == "_" for c in value
+                ):
+                    continue
+                if key == "email" and not EMAIL.fullmatch(value):
+                    continue
+                setattr(fields, key, value)
+            self.event(
+                session,
+                "identity_fields_extracted",
+                proposed_fields=extracted.model_dump(),
+                fields=fields.model_dump(),
+                message_index=len(session.history) - 1,
+            )
+
+        candidates = []
+        if fields.email:
+            candidates.append(("find_user_id_by_email", {"email": fields.email}))
+        if fields.first_name and fields.last_name and fields.zip:
+            candidates.append(
+                (
+                    "find_user_id_by_name_zip",
+                    {
+                        "first_name": fields.first_name,
+                        "last_name": fields.last_name,
+                        "zip": fields.zip,
+                    },
+                )
+            )
+        for name, arguments in candidates:
+            key = action_key(name, {k: fold_for_match(str(v)) for k, v in arguments.items()})
+            if key not in session.identity_attempts:
+                session.identity_attempts.add(key)
+                return self.guarded_call(session, "identity", name, arguments)
+
+        missing = [
+            label
+            for key, label in (
+                ("first_name", "first name"),
+                ("last_name", "last name"),
+                ("zip", "zip code"),
+            )
+            if not getattr(fields, key)
+        ]
+        if session.identity_attempts:
+            question = "I couldn't find a match. Please check your email address, or correct your first name, last name and zip code."
+        elif missing:
+            question = "Please provide your " + ", ".join(missing) + ", or your email address."
+        else:
+            question = (
+                "Please provide your email address, or your first name, last name and zip code."
+            )
+        self.event(session, "identity_missing_fields", missing_fields=missing, question=question)
+        return self.text(question)
 
     def guarded_call(self, session, role, name, arguments):
         if name not in self.role_tools[role]:

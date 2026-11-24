@@ -94,6 +94,17 @@ registry's task argument. Private user instructions, reference actions and the
 gold database are never supplied to MAS prompts. The source policy replaces the
 project's earlier category/membership rules in this runtime.
 
+Identity uses a short structured extraction prompt for email, first name, last
+name and zip; it does not receive the full transaction policy or write tools.
+Code grounds extracted values in actual customer text, asks only for missing
+identity fields and selects the appropriate native lookup. Names persist across
+zip corrections. A bare user ID is not split into guessed names or a postcode.
+Failed lookups are not repeated for unchanged inputs. `tau-native-v2` introduces
+this behavior after the first live run exposed identity responses asking for
+order IDs and incorrectly discussing refunds. This also removes free-form
+transaction claims from identity responses. Order and policy model behavior
+remains part of the live benchmark, not assumed correct by the fix.
+
 Identification requires a successful native email or name-plus-zip lookup even
 when a user ID is claimed in chat. A successful lookup loads the profile;
 subsequent private order requests must belong to that customer. Only one customer
@@ -163,6 +174,11 @@ overwritten. The process exits unsuccessfully on a failed task or scoring error.
 For a partially scored run, `native_mean_reward` averages scored trials only;
 `complete`, error counts and `success_rate_over_requested` retain the requested
 denominator. These are not pass^k or released leaderboard statistics.
+`complete: true` means every requested trial was scored, not that the customer's
+task succeeded. The native reward, success count and termination reasons describe
+the task outcome. `user_stop` can occur after the customer gives up or accepts an
+incorrect answer; it is not proof of completion. Each trial prints termination
+and reward, and the summary includes termination counts.
 
 **This is a native custom run, not a leaderboard-comparable result.** The MAS and
 local user/judge models differ from released configurations. It retains native

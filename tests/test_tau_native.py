@@ -32,7 +32,7 @@ if READY:
 
     from Evaluations.tau_native.run import judge_settings, run_task, validate_reward
     from src.tau_native.agent import WRITE_TOOLS, NativeRetailAgent, create_native_agent
-    from src.tau_native.objects import Route, Session
+    from src.tau_native.objects import IdentityFields, Route, Session
 
 
 @unittest.skipUnless(
@@ -54,12 +54,152 @@ class NativeRetailTests(unittest.TestCase):
             agent="order", plan=["Read the order", "Confirm any change"]
         )
         agent.specialists = {role: Mock() for role in ("identity", "order", "policy")}
+        agent.identity_extractor = Mock()
+        agent.identity_extractor.invoke.return_value = IdentityFields()
         return agent
 
     def proposal(self, name, arguments):
         return AIMessage(
             content="", tool_calls=[{"id": "proposed", "name": name, "args": arguments}]
         )
+
+    def test_identity_asks_for_identity_not_order_details_or_transactions(self):
+        state = self.agent.get_init_state()
+        response, state = self.agent.generate_next_message(
+            UserMessage.text("I received a laptop and found a better deal. Can I return it?"), state
+        )
+        self.assertIn("first name", response.content)
+        self.assertIn("last name", response.content)
+        self.assertIn("zip code", response.content)
+        self.assertNotIn("order ID", response.content)
+        self.assertNotIn("refund", response.content)
+        self.assertFalse(response.tool_calls)
+        self.agent.specialists["identity"].invoke.assert_not_called()
+        prompt = self.agent.identity_extractor.invoke.call_args.args[0][0].content
+        self.assertNotIn("Source policy:", prompt)
+        self.assertNotIn("Before any database change", prompt)
+        self.assertIsNone(state.user_id)
+
+    def test_identity_looks_up_name_zip_after_asking_the_right_question(self):
+        state = self.agent.get_init_state()
+        _, state = self.agent.generate_next_message(
+            UserMessage.text("I'd like to return a laptop."), state
+        )
+        self.agent.identity_extractor.invoke.return_value = IdentityFields(
+            first_name="Emma", last_name="Smith", zip="10192"
+        )
+        request, state = self.agent.generate_next_message(
+            UserMessage.text("I'm Emma Smith. My zip code is 10192."), state
+        )
+        self.assertEqual(request.tool_calls[0].name, "find_user_id_by_name_zip")
+        self.assertIsNone(state.user_id)
+        profile_request, state = self.agent.generate_next_message(
+            self.env.get_response(request.tool_calls[0]), state
+        )
+        self.assertEqual(state.user_id, self.uid)
+        self.assertEqual(profile_request.tool_calls[0].name, "get_user_details")
+
+    def test_identity_rejects_hallucinated_fields_and_user_id_name_inference(self):
+        for text in ("Please return my laptop.", "My user ID is emma_smith_10192."):
+            with self.subTest(text=text):
+                state = self.agent.get_init_state()
+                self.agent.identity_extractor.invoke.return_value = IdentityFields(
+                    first_name="Emma",
+                    last_name="Smith",
+                    zip="10192",
+                    email="emma.smith3991@example.com",
+                )
+                response, state = self.agent.generate_next_message(UserMessage.text(text), state)
+                self.assertFalse(response.tool_calls)
+                self.assertIsNone(state.user_id)
+                self.assertEqual(state.identity_fields, IdentityFields())
+
+    def test_identity_retains_names_for_a_corrected_bare_zip_and_does_not_repeat_failed_lookup(
+        self,
+    ):
+        state = self.agent.get_init_state()
+        self.agent.identity_extractor.invoke.return_value = IdentityFields(
+            first_name="Emma", last_name="Smith", zip="00000"
+        )
+        request, state = self.agent.generate_next_message(
+            UserMessage.text("My name is Emma Smith and my zip code is 00000."), state
+        )
+        failed = self.env.get_response(request.tool_calls[0])
+        self.assertTrue(failed.error)
+        question, state = self.agent.generate_next_message(failed, state)
+        self.assertFalse(question.tool_calls)
+        self.assertIn("couldn't find a match", question.content)
+        corrected, state = self.agent.generate_next_message(UserMessage.text("10192"), state)
+        self.assertEqual(
+            corrected.tool_calls[0].arguments,
+            {"first_name": "Emma", "last_name": "Smith", "zip": "10192"},
+        )
+        self.assertEqual(self.agent.identity_extractor.invoke.call_count, 1)
+
+    def test_identity_email_is_a_native_lookup_and_does_not_require_the_extractor(self):
+        state = self.agent.get_init_state()
+        request, state = self.agent.generate_next_message(
+            UserMessage.text("emma.smith3991@example.com"), state
+        )
+        self.assertEqual(request.tool_calls[0].name, "find_user_id_by_email")
+        self.assertIsNone(state.user_id)
+        self.agent.identity_extractor.invoke.assert_not_called()
+        _, state = self.agent.generate_next_message(
+            self.env.get_response(request.tool_calls[0]), state
+        )
+        self.assertEqual(state.user_id, self.uid)
+
+    def test_identity_accumulates_name_then_zip(self):
+        state = self.agent.get_init_state()
+        self.agent.identity_extractor.invoke.return_value = IdentityFields(
+            first_name="Emma", last_name="Smith"
+        )
+        question, state = self.agent.generate_next_message(
+            UserMessage.text("My name is Emma Smith."), state
+        )
+        self.assertIn("zip code", question.content)
+        self.assertNotIn("first name", question.content)
+        request, state = self.agent.generate_next_message(UserMessage.text("10192."), state)
+        self.assertEqual(request.tool_calls[0].arguments["zip"], "10192")
+
+    def test_identity_extractor_can_interpret_a_last_name_reply_using_the_actual_question(self):
+        state = self.agent.get_init_state()
+        self.agent.identity_extractor.invoke.side_effect = [
+            IdentityFields(first_name="Emma", zip="10192"),
+            IdentityFields(last_name="Smith"),
+        ]
+        question, state = self.agent.generate_next_message(
+            UserMessage.text("My first name is Emma, and my zip code is 10192."), state
+        )
+        self.assertIn("last name", question.content)
+        request, state = self.agent.generate_next_message(UserMessage.text("Smith"), state)
+        self.assertEqual(
+            request.tool_calls[0].arguments,
+            {"first_name": "Emma", "last_name": "Smith", "zip": "10192"},
+        )
+        prompt = self.agent.identity_extractor.invoke.call_args.args[0][0].content
+        self.assertIn(question.content, prompt)
+        self.assertIn('"first_name": "Emma"', prompt)
+        self.assertIn('"zip": "10192"', prompt)
+
+    def test_failed_email_is_not_retried_with_only_different_casing_and_can_be_corrected(self):
+        state = self.agent.get_init_state()
+        request, state = self.agent.generate_next_message(
+            UserMessage.text("nobody@tau-probes.invalid"), state
+        )
+        failed = self.env.get_response(request.tool_calls[0])
+        self.assertTrue(failed.error)
+        _, state = self.agent.generate_next_message(failed, state)
+        response, state = self.agent.generate_next_message(
+            UserMessage.text("NOBODY@TAU-PROBES.INVALID"), state
+        )
+        self.assertFalse(response.tool_calls)
+        self.assertIn("couldn't find a match", response.content)
+        corrected, state = self.agent.generate_next_message(
+            UserMessage.text("emma.smith3991@example.com"), state
+        )
+        self.assertEqual(corrected.tool_calls[0].arguments, {"email": "emma.smith3991@example.com"})
+        self.assertIsNone(state.user_id)
 
     def authenticated(self):
         profile = self.env.tools.get_user_details(self.uid).model_dump(mode="json")
@@ -218,8 +358,8 @@ class NativeRetailTests(unittest.TestCase):
         self.assertTrue(any(e["kind"] == "tool_result" and e["error"] for e in state.events))
 
     def prepare_dialogue(self, confirmation="Yes"):
-        self.agent.specialists["identity"].invoke.return_value = self.proposal(
-            "find_user_id_by_name_zip", {"first_name": "Emma", "last_name": "Smith", "zip": "10192"}
+        self.agent.identity_extractor.invoke.return_value = IdentityFields(
+            first_name="Emma", last_name="Smith", zip="10192"
         )
         self.agent.specialists["order"].invoke.side_effect = [
             self.proposal("get_order_details", {"order_id": self.oid}),
@@ -342,6 +482,40 @@ class NativeRetailTests(unittest.TestCase):
         self.assertTrue(
             any(e["kind"] == "confirmation_given" for e in self.agent.last_session.events)
         )
+
+    def test_native_dialogue_without_initial_identity_can_complete_after_name_zip_clarification(
+        self,
+    ):
+        utterances = [
+            "I received a laptop but found a better deal. Can I return it?",
+            *self.prepare_dialogue(),
+        ]
+        user = UserSimulator(
+            llm="controlled-not-a-benchmark", instructions=str(self.task.user_scenario)
+        )
+        orchestrator = Orchestrator(
+            domain="retail",
+            agent=self.agent,
+            user=user,
+            environment=self.env,
+            task=self.task,
+            max_steps=40,
+            max_errors=2,
+            seed=42,
+            validate_communication=True,
+        )
+        with patch(
+            "tau2.user.user_simulator.generate",
+            side_effect=[AssistantMessage(role="assistant", content=t) for t in utterances],
+        ):
+            simulation = run_simulation(orchestrator, evaluation_type=EvaluationType.ALL)
+        replies = [
+            m.content for m in simulation.messages if isinstance(m, AssistantMessage) and m.content
+        ]
+        self.assertIn("first name", replies[1])
+        self.assertNotIn("order ID", replies[1])
+        self.assertEqual(simulation.reward_info.reward, 1)
+        self.assertEqual(self.agent.last_session.user_id, self.uid)
 
     def test_refusing_a_required_change_receives_a_native_zero(self):
         simulation = self.native_simulation(confirmation="No.")
