@@ -1,5 +1,4 @@
 from langgraph.graph import END, START, StateGraph
-
 from src.nodes import customer_id, identity_node, order_node, policy_node, supervisor_node
 from src.state import RetailState
 
