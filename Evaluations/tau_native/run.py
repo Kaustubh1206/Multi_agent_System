@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import sys
+import traceback
 import urllib.request
 from collections import Counter
 from contextlib import contextmanager
@@ -273,13 +274,18 @@ def main():
                     flush=True,
                 )
             except Exception as exc:
+                failure = f"{type(exc).__name__}: {exc}"
+                error_path = output / f"task-{task.id}-trial-{trial + 1}.error.txt"
+                error_path.write_text(traceback.format_exc())
+                print(f"  ERROR: {failure}\n  Traceback: {error_path}", flush=True)
                 records.append(
                     {
                         "task_id": task.id,
                         "trial": trial + 1,
                         "status": "error",
                         "reward": None,
-                        "error": f"{type(exc).__name__}: {exc}",
+                        "error": failure,
+                        "error_file": error_path.name,
                     }
                 )
             (output / "results.json").write_text(json.dumps(records, indent=2))

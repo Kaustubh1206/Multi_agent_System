@@ -14,6 +14,7 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.messages import ToolMessage as LCToolMessage
 from langchain_ollama import ChatOllama
 from langgraph.graph import END, START, StateGraph
+from pydantic import ValidationError
 from tau2.agent.base_agent import HalfDuplexAgent, is_valid_agent_history_message
 from tau2.data_model.message import (
     AssistantMessage,
@@ -30,6 +31,8 @@ from .prompts import COMMON, IDENTITY_EXTRACT, SPECIALISTS, SUPERVISOR, VERSION
 AUTH_TOOLS = {"find_user_id_by_email", "find_user_id_by_name_zip"}
 EMAIL = re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.I)
 BARE_ZIP = re.compile(r"(\d{5}(?:-\d{4})?)[.!]?")
+
+
 WRITE_TOOLS = {
     "cancel_pending_order",
     "exchange_delivered_order_items",
@@ -43,6 +46,10 @@ CONFIRM = re.compile(
     r"(?:yes(?:,?\s+(?:please(?:\s+(?:proceed|do (?:it|that)))?|go ahead|proceed|that(?:'s| is) (?:correct|right)|I confirm))?|I confirm|confirmed|confirm|go ahead|please proceed|proceed)[.! ]*",
     re.I,
 )
+
+
+class InvalidProposal(ValueError):
+    """A model proposal rejected before any native tool execution."""
 
 
 def action_key(name, arguments):
@@ -191,11 +198,13 @@ class NativeRetailAgent(HalfDuplexAgent[Session]):
             "confirmation_requested",
             "guard_denied",
             "identity_missing_fields",
+            "model_output_rejected",
         }:
             detail = (
                 values.get("tool")
                 or values.get("reason")
                 or values.get("question")
+                or values.get("error")
                 or values.get("route", {}).get("agent", "")
             )
             print(f"  {agent}: {kind} {detail}", flush=True)
@@ -204,7 +213,7 @@ class NativeRetailAgent(HalfDuplexAgent[Session]):
         return AssistantMessage(role="assistant", content=content)
 
     def emit(self, session, name, arguments):
-        self.by_name[name].params.model_validate(arguments)
+        self.by_name[name].params.model_validate(arguments, extra="forbid")
         call = ToolCall(id=str(uuid4()), name=name, arguments=copy.deepcopy(arguments))
         session.outstanding = call.model_dump()
         self.event(session, "tool_requested", tool=name, arguments=arguments, call_id=call.id)
@@ -282,34 +291,97 @@ class NativeRetailAgent(HalfDuplexAgent[Session]):
         if role == "identity":
             return {"session": session, "response": self.identify(session)}
         context = json.dumps(
-            {"authenticated_user_id": session.user_id, "known_order_ids": list(session.orders)},
+            {
+                "authenticated_user_id": session.user_id,
+                "customer_order_ids": session.profile.get("orders", []) if session.profile else [],
+                "observed_order_statuses": {
+                    oid: order.get("status") for oid, order in session.orders.items()
+                },
+            },
             sort_keys=True,
         )
-        proposal = self.specialists[role].invoke(
-            [
-                SystemMessage(
-                    content=COMMON
-                    + "\n"
-                    + SPECIALISTS[role]
-                    + "\nSource policy:\n"
-                    + self.domain_policy
-                    + "\nKnown context:\n"
-                    + context
-                ),
-                *lc_history(session.history),
-            ]
-        )
+        messages = [
+            SystemMessage(
+                content=COMMON
+                + "\n"
+                + SPECIALISTS[role]
+                + "\nSource policy:\n"
+                + self.domain_policy
+                + "\nKnown context:\n"
+                + context
+            ),
+            *lc_history(session.history),
+        ]
+        for attempt in range(2):  # One repair; never retry an executed tool here.
+            self.event(session, "model_requested", attempt=attempt)
+            proposal = self.specialists[role].invoke(messages)
+            self.event(
+                session,
+                "proposal",
+                proposed_tools=proposal.tool_calls,
+                invalid_tool_calls=proposal.invalid_tool_calls,
+                content=proposal.content,
+                attempt=attempt,
+                usage=proposal.usage_metadata,
+            )
+            try:
+                response = self.accept_proposal(session, role, proposal)
+                return {"session": session, "response": response}
+            except InvalidProposal as exc:
+                self.event(session, "model_output_rejected", attempt=attempt, error=str(exc))
+                if attempt == 1:
+                    raise InvalidProposal(
+                        f"{role} specialist failed after one proposal repair: {exc}"
+                    ) from exc
+                feedback = (
+                    "PRE-EXECUTION VALIDATION FEEDBACK: Your last proposal was rejected. "
+                    "No tool was executed and no action was performed. The customer request is unchanged. "
+                    "Re-read that request and the actual tool results. Choose the correct operation; "
+                    "a return is not an exchange or item modification. Do not invent replacement IDs "
+                    "or fill required fields with made-up values. Read the order before proposing a change. "
+                    "If facts are missing, use a valid read tool or ask a relevant question. "
+                    "Correct your proposal, not the customer's request.\nValidation error: "
+                    + str(exc)
+                    + "\nRejected proposal: "
+                    + json.dumps(
+                        {
+                            "tool_calls": proposal.tool_calls,
+                            "invalid_tool_calls": proposal.invalid_tool_calls,
+                            "content": proposal.content,
+                        }
+                    )
+                )
+                messages.append(SystemMessage(content=feedback))
+
+    def accept_proposal(self, session, role, proposal):
+        """Validate a proposal, obtain missing order facts, and retain all write guards."""
         if proposal.invalid_tool_calls:
-            raise ValueError("Invalid structured tool call from specialist")
+            raise InvalidProposal("Malformed tool-call JSON; use one of the supplied tool schemas")
         if proposal.tool_calls:
             call = proposal.tool_calls[0]  # Serialize calls so no write bypasses a turn boundary.
-            self.event(session, "proposal", proposed_tools=proposal.tool_calls)
-            response = self.guarded_call(session, role, call["name"], call["args"])
-        else:
-            if not isinstance(proposal.content, str) or not proposal.content.strip():
-                raise ValueError("Specialist produced no customer response")
-            response = self.text(proposal.content)
-        return {"session": session, "response": response}
+            name, arguments = call["name"], call["args"]
+            if name not in self.role_tools[role]:
+                raise InvalidProposal(
+                    f"Tool {name!r} is unavailable to {role}; use a supplied tool"
+                )
+            oid = arguments.get("order_id")
+            if name in WRITE_TOOLS and isinstance(oid, str) and oid not in session.orders:
+                # A proposal is not evidence of the order's status. The regular
+                # read guard still enforces authentication and ownership.
+                self.event(session, "order_context_required", proposed_tool=name, order_id=oid)
+                return self.guarded_call(session, role, "get_order_details", {"order_id": oid})
+            try:
+                self.by_name[name].params.model_validate(arguments, extra="forbid")
+            except ValidationError as exc:
+                details = "; ".join(
+                    ".".join(map(str, e["loc"])) + ": " + e["msg"]
+                    for e in exc.errors(include_url=False)
+                )
+                raise InvalidProposal(f"{name}: {details}") from exc
+            return self.guarded_call(session, role, name, arguments)
+        if not isinstance(proposal.content, str) or not proposal.content.strip():
+            raise InvalidProposal("Specialist produced neither a tool call nor a customer response")
+        return self.text(proposal.content)
 
     def identify(self, session):
         """Extract small fields; code asks questions and selects the native lookup."""
@@ -408,7 +480,7 @@ class NativeRetailAgent(HalfDuplexAgent[Session]):
         if name not in self.role_tools[role]:
             self.event(session, "guard_denied", reason="tool_outside_role", tool=name)
             return self.text("I cannot perform that operation through this specialist.")
-        self.by_name[name].params.model_validate(arguments)
+        self.by_name[name].params.model_validate(arguments, extra="forbid")
         if name == "transfer_to_human_agents":
             return self.emit(session, name, arguments)
         if name in AUTH_TOOLS:

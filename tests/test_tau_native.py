@@ -5,10 +5,12 @@ TAU2_NATIVE_DATA_DIR to a clean pinned source checkout's data directory.
 """
 
 import importlib.util
+import io
 import json
 import os
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -30,8 +32,18 @@ if READY:
     from tau2.runner import run_simulation
     from tau2.user.user_simulator import UserSimulator
 
-    from Evaluations.tau_native.run import judge_settings, run_task, validate_reward
-    from src.tau_native.agent import WRITE_TOOLS, NativeRetailAgent, create_native_agent
+    from Evaluations.tau_native.run import (
+        judge_settings,
+        main,
+        run_task,
+        validate_reward,
+    )
+    from src.tau_native.agent import (
+        WRITE_TOOLS,
+        InvalidProposal,
+        NativeRetailAgent,
+        create_native_agent,
+    )
     from src.tau_native.objects import IdentityFields, Route, Session
 
 
@@ -208,6 +220,122 @@ class NativeRetailTests(unittest.TestCase):
             user_id=self.uid, profile=profile, orders={self.oid: order}, active_agent="order"
         )
 
+    def malformed_replacement(self, tool="modify_pending_order_items"):
+        return self.proposal(
+            tool,
+            {
+                "order_id": self.oid,
+                "item_ids": ["8997785118"],
+                "payment_method_id": "gift_card_8541487",
+            },
+        )
+
+    def test_malformed_write_first_reads_owned_order_then_repairs_without_fabricating_items(self):
+        state = self.authenticated()
+        state.orders = {}
+        self.agent.specialists["order"].invoke.side_effect = [
+            self.malformed_replacement(),
+            self.malformed_replacement(),
+            self.proposal("cancel_pending_order", self.arguments),
+        ]
+        before = self.env.get_db_hash()
+        read, state = self.agent.generate_next_message(
+            UserMessage.text("Can I return my laptop, or cancel the order if I cannot?"), state
+        )
+        self.assertEqual(read.tool_calls[0].name, "get_order_details")
+        question, state = self.agent.generate_next_message(
+            self.env.get_response(read.tool_calls[0]), state
+        )
+        self.assertFalse(question.tool_calls)
+        self.assertIn("confirm", question.content)
+        self.assertEqual(state.pending["name"], "cancel_pending_order")
+        self.assertEqual(state.pending["arguments"], self.arguments)
+        self.assertEqual(before, self.env.get_db_hash())
+        self.assertEqual(self.agent.specialists["order"].invoke.call_count, 3)
+        feedback = self.agent.specialists["order"].invoke.call_args.args[0][-1].content
+        self.assertIn("new_item_ids", feedback)
+        self.assertIn("No tool was executed", feedback)
+        self.assertNotIn("PRE-EXECUTION", " ".join(m.content or "" for m in state.history))
+        requested = [e["tool"] for e in state.events if e["kind"] == "tool_requested"]
+        self.assertEqual(requested, ["get_order_details"])
+
+    def test_repeated_missing_replacement_fields_stop_after_one_repair_without_a_write(self):
+        for tool in ("modify_pending_order_items", "exchange_delivered_order_items"):
+            with self.subTest(tool=tool):
+                state = self.authenticated()
+                self.agent.specialists["order"].invoke.return_value = self.malformed_replacement(
+                    tool
+                )
+                self.agent.specialists["order"].invoke.reset_mock()
+                before = self.env.get_db_hash()
+                with self.assertRaisesRegex(InvalidProposal, "one proposal repair.*new_item_ids"):
+                    self.agent.generate_next_message(UserMessage.text("Check this order."), state)
+                self.assertEqual(self.agent.specialists["order"].invoke.call_count, 2)
+                self.assertIsNone(state.pending)
+                self.assertEqual(before, self.env.get_db_hash())
+                self.assertEqual(
+                    len([e for e in state.events if e["kind"] == "model_output_rejected"]), 2
+                )
+                self.assertFalse(any(e["kind"] == "tool_requested" for e in state.events))
+
+    def test_malformed_read_and_invalid_json_can_be_repaired_before_native_execution(self):
+        malformed = [
+            self.proposal("get_order_details", {}),
+            AIMessage(
+                content="",
+                invalid_tool_calls=[
+                    {"id": "bad", "name": "get_order_details", "args": "{", "error": "Invalid JSON"}
+                ],
+            ),
+        ]
+        for proposal in malformed:
+            with self.subTest(proposal=proposal):
+                state = self.authenticated()
+                self.agent.specialists["order"].invoke.side_effect = [
+                    proposal,
+                    self.proposal("get_order_details", {"order_id": self.oid}),
+                ]
+                request, state = self.agent.generate_next_message(
+                    UserMessage.text("Check my order."), state
+                )
+                self.assertEqual(request.tool_calls[0].arguments, {"order_id": self.oid})
+                self.assertFalse(self.env.get_response(request.tool_calls[0]).error)
+                self.assertEqual(len([e for e in state.events if e["kind"] == "tool_requested"]), 1)
+
+    def test_proposal_repair_does_not_retry_a_model_connection_error(self):
+        state = self.authenticated()
+        self.agent.specialists["order"].invoke.side_effect = ConnectionError("Ollama unavailable")
+        with self.assertRaisesRegex(ConnectionError, "Ollama unavailable"):
+            self.agent.generate_next_message(UserMessage.text("Check my order."), state)
+        self.assertEqual(self.agent.specialists["order"].invoke.call_count, 1)
+        self.assertFalse(any(e["kind"] == "model_output_rejected" for e in state.events))
+
+    def test_unsupported_native_arguments_are_repaired_not_silently_dropped(self):
+        state = self.authenticated()
+        self.agent.specialists["order"].invoke.side_effect = [
+            self.proposal(
+                "cancel_pending_order", {**self.arguments, "payment_method_id": "gift_card_8541487"}
+            ),
+            self.proposal("cancel_pending_order", self.arguments),
+        ]
+        response, state = self.agent.generate_next_message(
+            UserMessage.text("Cancel my order."), state
+        )
+        self.assertFalse(response.tool_calls)
+        self.assertEqual(state.pending["arguments"], self.arguments)
+        self.assertTrue(
+            any(
+                e["kind"] == "model_output_rejected" and "payment_method_id" in e["error"]
+                for e in state.events
+            )
+        )
+        read, state = self.agent.generate_next_message(UserMessage.text("Yes"), state)
+        write, state = self.agent.generate_next_message(
+            self.env.get_response(read.tool_calls[0]), state
+        )
+        self.assertEqual(write.tool_calls[0].arguments, self.arguments)
+        self.assertFalse(self.env.get_response(write.tool_calls[0]).error)
+
     def test_no_write_before_confirmation_then_exactly_one_after_recheck(self):
         state = self.authenticated()
         response = self.agent.guarded_call(state, "order", "cancel_pending_order", self.arguments)
@@ -372,8 +500,10 @@ class NativeRetailTests(unittest.TestCase):
             "Thank you. ###STOP###",
         ]
 
-    def native_simulation(self, confirmation="Yes"):
+    def native_simulation(self, confirmation="Yes", order_proposals=None):
         utterances = self.prepare_dialogue(confirmation)
+        if order_proposals is not None:
+            self.agent.specialists["order"].invoke.side_effect = order_proposals
         user = UserSimulator(
             llm="controlled-not-a-benchmark", instructions=str(self.task.user_scenario)
         )
@@ -482,6 +612,49 @@ class NativeRetailTests(unittest.TestCase):
         self.assertTrue(
             any(e["kind"] == "confirmation_given" for e in self.agent.last_session.events)
         )
+
+    def test_native_reward_uses_only_actual_calls_after_invalid_replacement_proposals(self):
+        simulation = self.native_simulation(
+            order_proposals=[
+                self.malformed_replacement(),
+                self.malformed_replacement(),
+                self.proposal("cancel_pending_order", self.arguments),
+                AIMessage(content="The order was cancelled."),
+            ]
+        )
+        self.assertEqual(simulation.reward_info.reward, 1)
+        actual = [
+            c.name for m in simulation.messages for c in (getattr(m, "tool_calls", None) or [])
+        ]
+        self.assertNotIn("modify_pending_order_items", actual)
+        self.assertEqual(actual.count("cancel_pending_order"), 1)
+        self.assertTrue(
+            any(e["kind"] == "model_output_rejected" for e in self.agent.last_session.events)
+        )
+
+    def test_cli_prints_failures_and_saves_tracebacks_without_scoring_them_as_passes(self):
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp) / "run"
+            with (
+                patch("sys.argv", ["run.py", "--task-id", "69", "--output", str(output)]),
+                patch("Evaluations.tau_native.run.preflight"),
+                patch(
+                    "Evaluations.tau_native.run.run_task",
+                    side_effect=ValueError("new_item_ids: Field required"),
+                ),
+                redirect_stdout(io.StringIO()) as terminal,
+            ):
+                with self.assertRaises(SystemExit) as error:
+                    main()
+            self.assertEqual(error.exception.code, 1)
+            self.assertIn("ERROR: ValueError: new_item_ids", terminal.getvalue())
+            rows = json.loads((output / "results.json").read_text())
+            self.assertIsNone(rows[0]["reward"])
+            self.assertEqual(rows[0]["status"], "error")
+            self.assertIn("Traceback", (output / rows[0]["error_file"]).read_text())
+            summary = json.loads((output / "summary.json").read_text())
+            self.assertFalse(summary["complete"])
+            self.assertEqual(summary["successes"], 0)
 
     def test_native_dialogue_without_initial_identity_can_complete_after_name_zip_clarification(
         self,

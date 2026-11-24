@@ -1,6 +1,6 @@
 """Role prompts for the native retail tools, with no task answers or fixture IDs."""
 
-VERSION = "tau-native-v2"
+VERSION = "tau-native-v3"
 
 IDENTITY_EXTRACT = """
 Extract identity fields from the latest CUSTOMER message only. Return the
@@ -50,8 +50,12 @@ The source policy, not this project's earlier retail policies, is authoritative.
 SPECIALISTS = {
     "identity": IDENTITY_EXTRACT,
     "order": """Use get_user_details/get_order_details for the authenticated user.
-Use the profile to find missing order IDs rather than guessing. Read actual
-product variants, availability and prices when selecting replacements. Apply the
+Use the profile to find missing order IDs rather than guessing. Read the actual
+order details before proposing any change to that order. A return request is not
+an exchange or item modification; replacement IDs are needed only for a requested
+replacement. Never invent those IDs to satisfy a tool's required fields. Use the
+observed order status and source policy to choose the operation.
+Read actual product variants, availability and prices when selecting replacements. Apply the
 source tool/policy conditions for cancellation, modifications, returns, exchanges,
 addresses and payment methods. Collect all items for a one-time change before
 proposing it, particularly exchanges. Respect the customer's preferences and

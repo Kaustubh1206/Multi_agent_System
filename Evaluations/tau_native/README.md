@@ -166,6 +166,8 @@ Results go to a new directory under `evaluation/tau-native/runs/`:
   actual tool outcomes. No private reasoning is requested.
 - `task-…-trial-….incomplete.json`: unscored conversation retained when execution
   or evaluation raises before a complete native result is available.
+- `task-…-trial-….error.txt`: traceback for an unscored run error. The exception
+  is printed in the terminal and its filename is recorded in `results.json`.
 - `results.json` and `summary.json`: per-trial rewards/errors and aggregate
   completion. Errors remain explicit with null reward; they are not passes.
 
@@ -179,6 +181,25 @@ task succeeded. The native reward, success count and termination reasons describ
 the task outcome. `user_stop` can occur after the customer gives up or accepts an
 incorrect answer; it is not proof of completion. Each trial prints termination
 and reward, and the summary includes termination counts.
+
+`tau-native-v3` handles malformed specialist proposals before native tool
+execution. It reads an order's actual details before considering a proposed
+change, distinguishes profile-known order IDs from observed statuses, and gives
+the same specialist **one** chance to correct an invalid tool/schema response.
+The feedback is an internal system message, not invented customer input or a
+fake tool result. Proposals, rejection reasons and corrected requests remain
+separate in the step record. Missing replacement IDs are never filled with
+made-up values; the model must choose the operation the customer actually wants
+or ask for genuinely missing facts. The first live failure involved a replacement
+tool lacking `new_item_ids` during task 69, whose customer wanted a return or
+cancellation.
+
+This is bounded proposal repair, not a retry of a transaction. It does not catch
+model connection failures, skip ownership/confirmation, repeat writes, or change
+native reward requirements. If the correction is still invalid, the run remains
+an explicit unscored error. The default 0.6B specialist and its output quality
+still need live evaluation; compare the existing 8B specialist option when the
+small model struggles with the full native tool schemas.
 
 **This is a native custom run, not a leaderboard-comparable result.** The MAS and
 local user/judge models differ from released configurations. It retains native
