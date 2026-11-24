@@ -65,6 +65,15 @@ This executes each MAS task once and evaluates those responses on all seven
 metrics. It does not execute the MAS seven times per task. Running seven separate
 scripts does create seven fresh sets of MAS responses, one per command.
 
+For the current Answer Correctness / Task Completion work, run both on the same
+set of responses:
+
+```bash
+python Evaluations/focus.py --model llama3.1:8b
+# A smaller first run:
+python Evaluations/focus.py --case V2-05 --case V2-10 --case V2-15 --case V2-17
+```
+
 | Script | DeepEval metric | Threshold |
 |---|---|---|
 | `task_completion.py` | Task Completion | 0.8 |
@@ -74,6 +83,34 @@ scripts does create seven fresh sets of MAS responses, one per command.
 | `argument_correctness.py` | Argument Correctness | 0.8 |
 | `tool_correctness.py` | Tool Correctness | 0.9 |
 | `answer_correctness.py` | Answer Correctness (GEval) | 0.8 |
+
+## Where the evaluation code lives
+
+The reference repository repeats the application loop and test-case setup in
+individual metric scripts. Here, `runner.py` shares that work, including scripted
+human replies and the graph's interrupt/resume handling. The short per-metric
+entrypoints call that runner; they are not empty metric implementations.
+
+`answer_correctness.py` now contains its GEval rubric and constructor, and
+`task_completion.py` contains its case-scoped native Task Completion definition.
+Edit those files to tune these two metrics. The other five constructors remain
+in `metrics.py`, with their own direct command entrypoints. Every run still uses
+native `deepeval.evaluate` and its terminal reporting.
+
+The protocol is **`answer-task-v2`**, with MAS prompts **`retail-v8`**. Answer
+Correctness grades only `customer_message`, like the reference repo's extraction
+of `structured_response.answer`. It no longer grades serialized internal result
+fields as customer statements. Reference answers describe final replies; earlier
+identification/clarification steps are checked through the observed conversation
+and case-specific Task Completion requirements. Full structured results remain
+in test-case metadata. Policy and fixed-date authorized fixture facts ground the
+judge; gold answers are never sent to the MAS.
+
+Thresholds and business requirements are unchanged. The evaluator representation
+and task scope changed, so new scores are not directly comparable to the old
+report. Keep [1_Evaluation.md](1_Evaluation.md) as the original and read the
+[25-case analysis](1_Evaluation_analysis.md) for findings and limits. Save new
+output separately. A better judge score alone does not establish better behavior.
 
 ## Tasks and expected outcomes
 
@@ -141,7 +178,7 @@ coverage, model/judge failures, or a zero-case run.
 python -m unittest discover -s tests -v
 ```
 
-Tests exercise real graphs, current fixture tools, all 25 supported scripts,
+Tests exercise real graphs, current fixture tools, all 25 supported cases,
 all seven native metrics and native `evaluate` output with controlled actors and
 judge responses. They are integration tests, not live model benchmark scores.
 This cloud machine has no Ollama service and the registry is blocked, so run the

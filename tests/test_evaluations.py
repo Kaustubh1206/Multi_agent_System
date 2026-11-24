@@ -1,6 +1,7 @@
 """Direct MAS + native DeepEval tests with controlled actors/judge, not model scores."""
 import io
 import json
+import copy
 import unittest
 import subprocess
 import sys
@@ -18,12 +19,14 @@ from Evaluations.runner import run_mas, evaluate_cases, main
 
 class ControlledJudge(DeepEvalBaseLLM):
     def load_model(self):
+        self.prompts = []
         return self
 
     def get_model_name(self):
         return 'controlled-judge-not-a-benchmark'
 
     def generate(self, prompt, schema=None, **kwargs):
+        self.prompts.append(str(prompt))
         values = {'task':'Report order status','outcome':'Reported shipped',
                   'plan':['Identify customer','Read order','Report status'],
                   'reason':'Controlled judge response','score':10 if schema.__name__=='ReasonScore' else 1,
@@ -64,7 +67,8 @@ class EvaluationTests(unittest.TestCase):
         case,checks=self.sample()
         self.assertTrue(all(checks.values()),checks)
         self.assertIn('avery.brooks@example.com',case.input)
-        self.assertEqual(json.loads(case.actual_output)['reason_code'],'order_status_found')
+        self.assertEqual(case.metadata['structured_result']['reason_code'],'order_status_found')
+        self.assertIn('shipped',case.actual_output)
         self.assertEqual(self.models['supervisor'].invoke.call_count,1)
         first_input=self.models['supervisor'].invoke.call_args.args[0][-1].content
         self.assertEqual(first_input,'Where is ORD-2001?')
@@ -134,13 +138,77 @@ class EvaluationTests(unittest.TestCase):
     def test_every_entrypoint_runs_as_a_direct_file_from_its_folder(self):
         root=Path(__file__).resolve().parents[1]
         scripts=['task_completion','step_efficiency','plan_quality','plan_adherence',
-                 'argument_correctness','tool_correctness','answer_correctness','eval_all']
+                 'argument_correctness','tool_correctness','answer_correctness','eval_all','focus']
         for script in scripts:
             with self.subTest(script=script):
                 result=subprocess.run([sys.executable,script+'.py','--list','--limit','1'],
                     cwd=root/'Evaluations',capture_output=True,text=True,check=True)
                 self.assertIn('V2-01',result.stdout)
                 self.assertIn('SKIPPED',result.stdout)
+
+    def test_public_refund_question_is_answered_despite_a_redundant_classifier_question(self):
+        task=next(t for t in TASKS if t['id']=='V2-05')
+        self.models['supervisor'].invoke.return_value=SupervisorOutput(
+            next_agent='policy',intent='refund/return',clarification_question='What is your order ID?')
+        self.models['policy'].invoke.return_value=PolicyOutput(topic='refunds')
+        with redirect_stdout(io.StringIO()):
+            case,checks=run_mas(task,build_graph)
+        self.assertTrue(all(checks.values()),checks)
+        self.assertEqual(case.metadata['termination'],'completed')
+        self.assertEqual([t.name for t in case.tools_called],['get_policy'])
+        self.assertIn('5–10 business days',case.actual_output)
+        self.assertIn('Original shipping',case.actual_output)
+        self.models['identity'].invoke.assert_not_called()
+
+    def test_only_customer_text_is_scored_as_the_final_answer(self):
+        case,_=self.sample()
+        result=case.metadata['structured_result']
+        self.assertEqual(case.actual_output,result['customer_message'])
+        self.assertNotIn('evidence',case.actual_output)
+        for evidence_id in result['evidence']:
+            self.assertNotIn(evidence_id,case.actual_output)
+        self.assertNotIn('Structured expectation',case.expected_output)
+        conversation=case.metadata['task_evidence']['conversation']
+        self.assertTrue(any(turn['role']=='assistant' and 'name or email' in turn['content'] for turn in conversation))
+        self.assertTrue(any(turn['content']=='avery.brooks@example.com' for turn in conversation))
+        self.assertIn('2026-11-15',case.context[0])
+
+    def test_completion_uses_case_goal_and_observations_without_mutating_other_metrics(self):
+        case,_=self.sample()
+        case._trace_dict['children'].append({'type':'llm','input':'UNRELATED CLASSIFIER INSTRUCTIONS'})
+        original=copy.deepcopy(case._trace_dict)
+        judge=ControlledJudge()
+        metric=build_metrics(judge,['Task Completion'])[0]
+        metric.measure(case,_show_indicator=False)
+        self.assertIn('Where is ORD-2001?',metric.task)
+        self.assertEqual(case._trace_dict,original)
+        self.assertNotIn('UNRELATED CLASSIFIER INSTRUCTIONS',' '.join(judge.prompts))
+        second=case.model_copy(deep=True)
+        second.metadata['completion_goal']='Answer a public refund timing question without identification.'
+        metric.measure(second,_show_indicator=False)
+        self.assertIn('public refund timing',metric.task)
+        self.assertNotIn('Where is ORD-2001?',metric.task)
+        self.assertEqual(metric.threshold,0.8)
+
+    def test_incomplete_public_answer_is_not_hidden_as_an_empty_json_result(self):
+        task=next(t for t in TASKS if t['id']=='V2-05')
+        self.models['supervisor'].invoke.return_value=SupervisorOutput(
+            next_agent='order',intent='order',clarification_question='Order ID?')
+        with redirect_stdout(io.StringIO()):
+            case,checks=run_mas(task,build_graph)
+        self.assertFalse(checks['final_response_present'])
+        self.assertFalse(checks['expected_stop'])
+        self.assertNotEqual(case.actual_output,'{}')
+        self.assertEqual(case.metadata['termination'],'awaiting_input')
+        self.assertTrue(case.metadata['pending_question'])
+
+    def test_wrong_customer_still_fails_independent_scope_checks(self):
+        task=copy.deepcopy(TASKS[0])
+        task['context']['customer_id']='CUS-202'
+        with redirect_stdout(io.StringIO()):
+            case,checks=run_mas(task,build_graph)
+        self.assertFalse(checks['status'])
+        self.assertEqual(case.metadata['structured_result']['reason_code'],'order_unavailable')
 
     def test_main_preflight_failure_never_runs_the_mas(self):
         with patch('sys.argv',['task_completion.py','--case','V2-01']), \

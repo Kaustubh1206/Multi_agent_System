@@ -145,6 +145,8 @@ All application and evaluation dependencies now use the root environment:
 uv sync --frozen
 source .venv/bin/activate
 python Evaluations/task_completion.py
+# Focus on Task Completion and Answer Correctness, using the same MAS responses:
+python Evaluations/focus.py
 # Or run all seven metrics on each MAS response:
 python Evaluations/eval_all.py
 ```
@@ -166,3 +168,10 @@ argument correctness, tool correctness, and answer correctness. Five unimplement
 action/recovery cases remain explicitly skipped. Missing plans and judge failures
 cannot become automatic passes. See [Evaluations/README.md](Evaluations/README.md)
 for individual scripts, setup and evidence limits.
+
+The [first 25-case review](Evaluations/1_Evaluation_analysis.md) separates missing
+or unclear answers from judge/input problems. The revised `answer-task-v2`
+protocol scores customer-visible text and case-specific workflow requirements;
+keep its results separate from the original report. The two focused metric
+definitions live in their respective scripts; shared execution remains in
+`Evaluations/runner.py`.

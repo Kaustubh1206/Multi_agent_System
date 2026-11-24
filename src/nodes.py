@@ -13,23 +13,23 @@ from pydantic import ValidationError
 from .models import specialist_model, supervisor_model
 from .objects import AgentResult, IdentityOutput, OrderOutput, PolicyOutput, SupervisorOutput
 from .prompts import (identity_system_prompt, order_system_prompt,
-                      policy_system_prompt, supervisor_system_prompt)
+                      policy_system_prompt, supervisor_system_prompt, PROMPT_VERSION)
 from .state import RetailState
 from . import tools as retail_tools
 from .tools import get_order, get_policy, identify_customer
 
 
 supervisor_llm = supervisor_model.with_structured_output(SupervisorOutput).with_config(
-    run_name="supervisor_decision", metadata={"prompt_version": "retail-v7"}
+    run_name="supervisor_decision", metadata={"prompt_version": PROMPT_VERSION}
 )
 identity_llm = specialist_model.with_structured_output(IdentityOutput).with_config(
-    run_name="identity_extraction", metadata={"prompt_version": "retail-v7"}
+    run_name="identity_extraction", metadata={"prompt_version": PROMPT_VERSION}
 )
 order_llm = specialist_model.with_structured_output(OrderOutput).with_config(
-    run_name="order_classification", metadata={"prompt_version": "retail-v7"}
+    run_name="order_classification", metadata={"prompt_version": PROMPT_VERSION}
 )
 policy_llm = specialist_model.with_structured_output(PolicyOutput).with_config(
-    run_name="policy_classification", metadata={"prompt_version": "retail-v7"}
+    run_name="policy_classification", metadata={"prompt_version": PROMPT_VERSION}
 )
 
 
@@ -154,6 +154,9 @@ def supervisor_node(state: RetailState) -> dict:
     else:
         decision["order_topic"] = None
         pending = None
+        if decision["next_agent"] == "policy":
+            # All public policy topics are answerable without identifiers.
+            decision["clarification_question"] = None
     if decision["clarification_question"]:
         new_messages.append(AIMessage(content=decision["clarification_question"]))
     return {**decision, "messages": new_messages, "agent_result": None,
@@ -278,7 +281,7 @@ def order_return_decision(order, item_id, quantity, today, condition=None, packa
         return outcome("ineligible", "payment_not_captured", "The order has no captured payment available for this return.")
     available = item["quantity"] - item["returned_quantity"] - item["pending_return_quantity"]
     if available <= 0:
-        return outcome("ineligible", "return_already_requested", "All units are already returned or pending return; no duplicate return can be requested.")
+        return outcome("ineligible", "return_already_requested", f"{item['returned_quantity']} unit(s) are already returned and {item['pending_return_quantity']} are pending return. No units remain for another request; no duplicate return can be requested.")
     if quantity is None and available > 1:
         question = f"How many units of {item['item_id']} would you like to return? {available} are available."
         return outcome("needs_information", "quantity_required", question, question)
@@ -304,16 +307,27 @@ def order_return_decision(order, item_id, quantity, today, condition=None, packa
                        "The 7-day damage-review exception has expired. Discretionary assistance may be requested, but no exception or refund is promised.")
     if item["final_sale"] or not item["returnable"] or item["category"] == "perishable":
         reason = "final_sale" if item["final_sale"] else "item_not_returnable"
-        return outcome("ineligible", reason, "This item is excluded from change-of-mind returns.")
+        explanation = ("This item is marked final sale, so it is excluded from change-of-mind returns."
+                       if item["final_sale"] else "This item is marked nonreturnable or is perishable, so it is excluded from change-of-mind returns.")
+        return outcome("ineligible", reason, explanation)
     window = {"standard": 45 if order["membership_at_purchase"] == "plus" else 30,
               "electronics": 14, "hygiene": 30}[item["category"]]
+    category = item["category"]
+    rule_explanation = (f"Standard-category items use membership at purchase ({order['membership_at_purchase']}); later membership changes do not extend that window."
+                        if category == "standard" else
+                        "Electronics have a 14-day window for every membership tier."
+                        if category == "electronics" else
+                        "Hygiene items must be unused and sealed and have a 30-day window.")
     if age > window:
         return outcome("ineligible", "return_window_expired",
-                       f"This item was delivered {age} days ago, outside its {window}-day return window.")
+                       f"This item was delivered {age} days ago, outside its {window}-day return window. " + rule_explanation)
     actual_packaging = False if packaging is False else (packaging if item["original_packaging"] is None else item["original_packaging"])
     actual_seal = "opened" if seal == "opened" else (seal if item["seal"] == "unknown" else item["seal"])
     if actual_condition == "unknown" or actual_packaging is None or (item["category"] == "hygiene" and actual_seal == "unknown"):
-        question = "Is the item unused or only tried on, with its original packaging? For hygiene items, is it still sealed?"
+        question = ("Is the item unused or only tried on, with its original packaging?"
+                    if category == "standard" else "Is the item unused and in its original packaging?")
+        if category == "hygiene":
+            question += " Is it still sealed?"
         return outcome("needs_information", "item_condition_required", question, question)
     if item["category"] == "hygiene" and actual_seal != "sealed":
         return outcome("ineligible", "opened_hygiene_item", "Opened hygiene items cannot be returned for change of mind.")
@@ -331,7 +345,9 @@ def order_return_decision(order, item_id, quantity, today, condition=None, packa
         value_note = f" Paid merchandise value: USD {cents // 100}.{cents % 100:02d} before applicable tax; this is not an approved refund."
     return outcome("eligible", "return_eligible",
                    f"{quantity} unit(s) of {item['item_id']} are eligible: delivered {age} days ago, "
-                   f"within the {window}-day window. Explicit confirmation is required before submission. "
+                   f"within the {window}-day window. {rule_explanation} "
+                   f"{available} unit(s) remain available after earlier returns or requests. "
+                   "Explicit confirmation is required before submission. "
                    "No return has been requested or refund issued." + value_note, **details)
 
 
@@ -462,6 +478,45 @@ def order_node(state: RetailState) -> dict:
         return failure("order", exc, events)
 
 
+
+def policy_answer(policy, question):
+    """Select relevant facts from the retrieved policy, without another generation."""
+    text = policy["answer"]
+    if policy["version"] != "retail-v2.0":
+        return text
+    query = question.casefold()
+    window_question = any(term in query for term in ("window", "how long", "how many days", "extra time"))
+    other_return_facts = any(term in query for term in
+                            ("damag", "condition", "packag", "seal", "final", "nonreturn", "payment", "submit", "confirm"))
+    if policy["topic"] == "returns" and window_question and not other_return_facts:
+        rows = [line for line in text.splitlines() if line.startswith("| ")
+                and not line.startswith("| Item category")]
+        categories = [name for name in ("electronics", "hygiene", "perishable", "standard") if name in query]
+        if categories:
+            if "plus" in query or "member" in query:
+                categories += ["standard"] if "standard" not in categories else []
+            rows = [row for category in categories for row in rows
+                    if row.split("|")[1].strip().casefold() == category]
+        if rows:
+            facts = []
+            for row in rows:
+                parts = [part.strip() for part in row.strip("|").split("|")]
+                if len(parts) == 3:
+                    facts.append(f"{parts[0]}: {parts[1]}. Conditions: {parts[2]}.")
+            answer = " ".join(facts)
+            paragraphs = [" ".join(p.split()) for p in text.split("\n\n")]
+            exclusions = next((p for p in paragraphs if p.startswith("Final-sale items")), "")
+            answer += " " + " ".join(re.split(r"(?<=[.!?])\s+", exclusions)[:3])
+            return answer.strip()
+    if policy["topic"] == "refunds" and any(term in query for term in
+            ("when", "how long", "arriv", "shipping", "delivery fee", "posting")) and not any(term in query for term in ("how much", "amount", "discount")):
+        timing = next((" ".join(p.split()) for p in text.split("\n\n")
+                       if p.startswith("Original shipping")), "")
+        if timing:
+            return timing
+    return text
+
+
 def policy_node(state: RetailState) -> dict:
     events = []
     try:
@@ -477,7 +532,7 @@ def policy_node(state: RetailState) -> dict:
             ), events)
         return finish(AgentResult(
             agent="policy", status="completed", reason_code="policy_answered",
-            customer_message=policy["answer"], references={"policy_version": policy["version"]},
+            customer_message=policy_answer(policy, state.get("customer_request", "")), references={"policy_version": policy["version"]},
             evidence=[events[-1]["id"]],
         ), events, policy_state={"topic": request.topic, "version": policy["version"]})
     except Exception as exc:

@@ -55,6 +55,15 @@ def preflight(judge_name):
         raise RuntimeError("Missing Ollama models: " + ", ".join(sorted(missing)) + ". Check ollama list and pull the missing tags.")
 
 
+
+def policy_context(task):
+    text = (DATA / "policy.md").read_text()
+    import re
+    sections = dict(re.findall(r"^## (P\d+) ([\s\S]*?)(?=^## |\Z)", text, re.M))
+    return "\n\n".join(rule + " " + sections[rule].strip()
+                          for rule in task["policy_rules"] if rule in sections)
+
+
 def run_mas(task, graph_factory=None):
     if graph_factory is None:
         from src.graphs import build_graph
@@ -96,17 +105,51 @@ def run_mas(task, graph_factory=None):
     authorized = next((o for o in customer["orders"] if o["order_id"] == oid), None) if customer else None
     plan = next((d["plan"] for d in state.get("supervisor_history", []) if d.get("source") != "human_resume" and any(s.strip() for s in d.get("plan", []))), [])
     tool_calls = state.get("tool_history", [])
-    case = LLMTestCase(name=task["id"],
-        input=json.dumps({"customer_messages": supplied, "session_customer_id": task["context"]["customer_id"]}),
-        actual_output=json.dumps(result), expected_output=gold.expected_output,
-        context=[(DATA / "policy.md").read_text(), json.dumps({"customer_id":owner,"authorized_order":authorized})],
+    conversation = [{"role": "customer" if message.type == "human" else "assistant", "content": plain(message.content)}
+                    for message in state.get("messages", []) if message.type in {"human", "ai"}]
+    customer_answer = result.get("customer_message") or state.get("clarification_question")
+    if not customer_answer:
+        customer_answer = "No customer-facing response was produced."
+    session = task["context"]["customer_id"]
+    session_note = (f"Trusted application session already identifies {session}; no repeated identification is needed."
+                    if session else "No preidentified session; a unique name/email lookup can identify the customer during this conversation.")
+    case_input = "Customer request: " + messages[0] + "\n" + session_note
+    if len(supplied) > 1:
+        case_input += "\nActual human follow-ups: " + json.dumps(supplied[1:])
+    workflow = {"name": "observed_retail_workflow", "input": case_input,
+                "output": customer_answer, "conversation": conversation,
+                "termination": "awaiting_input" if snapshot.next else "completed",
+                "children": children}
+    # Internal IDs/evidence remain available to checks and task diagnostics, but
+    # are not misrepresented as text disclosed to the customer.
+    for child in workflow["children"]:
+        observed_result = child.get("output", {}).get("agent_result")
+        if observed_result:
+            child["output"]["agent_result"] = {key: observed_result.get(key) for key in
+                                               ("agent", "status", "reason_code", "customer_message", "question")}
+    fixture_meta = {"fixture_date": fixture["evaluation_date"], "timezone": fixture.get("evaluation_timezone"),
+                    "policy_version": fixture.get("policy_version"), "customer_id": owner,
+                    "authorized_order": authorized}
+    goal = ("Request: " + messages[0] + "\n" + session_note +
+            "\nRequired outcome: " + task["expected"]["status"] +
+            "\n" + "\n".join(task["expected"]["response_requirements"]))
+    case = LLMTestCase(name=task["id"], input=case_input,
+        actual_output=customer_answer, expected_output=gold.expected_output,
+        context=["AUTHORITATIVE FIXTURE CONTEXT (use its fixed date, not the host date): " + json.dumps(fixture_meta),
+                 "APPLICABLE POLICY:\n" + policy_context(task),
+                 "OBSERVED CONVERSATION (earlier questions are not required again in the final answer): " + json.dumps(conversation)],
         tools_called=[ToolCall(name=e["tool"], input_parameters=e["arguments"], output=e.get("result")) for e in tool_calls],
-        expected_tools=gold.expected_tools, metadata={"public_plan": plan})
-    # In-memory execution context for the pinned DeepEval 4.3.4 agentic metrics.
-    # No JSON trace export or second scoring command is required.
-    case._trace_dict = {"type":"agent", "name":"retail_mas", "input":case.input, "output":result,
+        expected_tools=gold.expected_tools,
+        metadata={"public_plan": plan, "structured_result": result, "completion_goal": goal,
+                  "task_evidence": workflow, "termination": workflow["termination"],
+                  "pending_question": state.get("clarification_question"), "evaluation_protocol": "answer-task-v2"})
+    # Other agentic metrics retain model-call evidence in memory; Task Completion
+    # uses only observed conversation/operations, not generic classifier prompts.
+    case._trace_dict = {"type":"agent", "name":"retail_mas", "input":case.input, "output":customer_answer,
                         "children": sorted(children + list(evidence.calls.values()), key=lambda e:e["start_time"])}
     checks = {field: result.get(field) == task["expected"][field] for field in ("agent", "status", "reason_code")}
+    checks["final_response_present"] = bool(result.get("customer_message"))
+    checks["expected_stop"] = bool(snapshot.next) == (task["expected"]["status"] == "needs_information")
     checks["fixture_unchanged"] = before == (DATA / "customers.json").read_bytes()
     checks["all_replies_consumed"] = len(supplied) == len(messages)
     if oid and task["expected"]["agent"] == "order":
@@ -139,6 +182,7 @@ def evaluate_cases(cases, names, judge):
             async_config=AsyncConfig(run_async=False),
             cache_config=CacheConfig(use_cache=False, write_cache=False),
             error_config=ErrorConfig(ignore_errors=True),
+            hyperparameters={"judge_model": judge.get_model_name(), "evaluation_protocol": "answer-task-v2", "mas_prompt_version": "retail-v8"},
             display_config=DisplayConfig(show_indicator=True, print_results=True,
                                          truncate_passing_cases=False, inspect_after_run=False))
         results.extend(result.test_results)
@@ -165,7 +209,7 @@ def main(metric=None):
         for task in SKIPPED_TASKS:
             print(task["id"], "SKIPPED:", task["implementation_status"])
         return
-    print(f"Judge: {args.model} | Tasks: {len(selected)} | Unsupported action/recovery tasks: {len(SKIPPED_TASKS)}", flush=True)
+    print(f"Evaluation protocol: answer-task-v2 | Judge: {args.model} | Tasks: {len(selected)} | Unsupported action/recovery tasks: {len(SKIPPED_TASKS)}", flush=True)
     try:
         preflight(args.model)
     except Exception as exc:
@@ -185,7 +229,7 @@ def main(metric=None):
             print(f"  MAS ERROR: {type(exc).__name__}: {exc}", flush=True)
     if not cases:
         raise SystemExit(2)
-    names = [metric] if metric else NAMES
+    names = ([metric] if isinstance(metric, str) else metric) or NAMES
     print(f"\nDeepEval evaluating {len(cases)} responses on: {', '.join(names)}", flush=True)
     results, incomplete = evaluate_cases(cases, names, build_judge(args.model))
     print(f"\nEvaluated {len(cases)}/{len(selected)} MAS tasks. Unsupported scenarios: {len(SKIPPED_TASKS)}.", flush=True)

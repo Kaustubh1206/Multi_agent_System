@@ -8,7 +8,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
 
 from src.graphs import build_graph
-from src.nodes import return_inputs
+from src.nodes import policy_answer, return_inputs
 from src.objects import IdentityOutput, OrderOutput, PolicyOutput, SupervisorOutput
 from src.nodes import check_order_eligibility
 from src.tools import DATA, get_order, get_policy, identify_customer
@@ -132,6 +132,50 @@ class RetailV2RuntimeTests(unittest.TestCase):
         self.assertIn('45', text)
         self.assertIn('14', text)
         self.assertIn('human review', text)
+
+    def test_window_answer_keeps_membership_and_exclusion_limits(self):
+        policy = get_policy.invoke({'topic': 'returns'})
+        answer = policy_answer(policy, 'Do Plus members get extra time to return electronics?')
+        self.assertIn('Electronics: 14 days for every membership tier', answer)
+        self.assertIn('45 for Plus membership at purchase', answer)
+        self.assertIn('Final-sale items', answer)
+        self.assertNotIn('Hygiene:', answer)
+        # A question about other requirements must retain those policy facts.
+        conditions = policy_answer(policy, 'What condition and packaging do electronics need?')
+        self.assertIn('payment must have been captured', conditions)
+        damage = policy_answer(policy, 'What is the window for damaged electronics?')
+        self.assertIn('day 0 through day 7', damage)
+
+    def test_refund_answer_preserves_timing_limits_and_amount_questions(self):
+        policy = get_policy.invoke({'topic': 'refunds'})
+        answer = policy_answer(policy, 'When will my refund arrive, and is original shipping refunded?')
+        for fact in ('5–10 business days after approval', 'original payment method',
+                     'Exclude weekends', 'Store-fault shipping reimbursement',
+                     'approval record does not prove bank posting'):
+            self.assertIn(fact, answer)
+        amount = policy_answer(policy, 'When and how much will I get after a discount?')
+        self.assertIn('allocated', amount)
+        self.assertIn('Prorate', amount)
+
+    def test_return_explanations_name_the_deciding_facts(self):
+        def check(customer, order):
+            return check_order_eligibility.invoke({'customer_id': customer,
+                'order_id': order, 'topic': 'returns'})['explanation']
+        self.assertIn('membership at purchase (standard)', check('CUS-207', 'ORD-2027'))
+        self.assertIn('later membership changes do not extend', check('CUS-207', 'ORD-2027'))
+        self.assertIn('marked final sale', check('CUS-212', 'ORD-2012'))
+        self.assertIn('1 are pending return', check('CUS-201', 'ORD-2021'))
+        partial = check('CUS-209', 'ORD-2029')
+        self.assertIn('1 unit(s) remain available', partial)
+        self.assertIn('USD 23.00', partial)
+        self.assertIn('not an approved refund', partial)
+
+    def test_standard_condition_question_does_not_ask_for_a_hygiene_seal(self):
+        result = check_order_eligibility.invoke({'customer_id': 'CUS-220',
+            'order_id': 'ORD-2020', 'topic': 'returns'})
+        self.assertEqual(result['reason_code'], 'item_condition_required')
+        self.assertIn('original packaging', result['question'])
+        self.assertNotIn('seal', result['question'])
 
     def test_unfavorable_customer_condition_is_not_ignored(self):
         before = get_order.invoke({'customer_id':'CUS-203','order_id':'ORD-2003'})['order']
