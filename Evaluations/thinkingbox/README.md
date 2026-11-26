@@ -69,6 +69,11 @@ executing tasks twice. Both use threshold **0.8** and native DeepEval metrics:
 The existing 25-task retail suite remains under `Evaluations/` with its data
 and reports unchanged.
 
+The first recorded retail run is reviewed in
+[Results_Thinking_analysis.md](Results_Thinking_analysis.md), including all 98
+case scores and the confirmed zero-tool first case. It prompted protocol
+`thinkingbox-retail-mas-v3`; keep its reruns separate from the original output.
+
 ## Models and the agent being tested
 
 Defaults: supervisor `qwen3:4b`, specialists `qwen3:0.6b`, user simulator and
@@ -92,10 +97,20 @@ application: that application cannot perform the benchmark's transactions.
 The supervisor returns only `{agent, next_step}`. State consists of observed
 conversation messages, that route, and the next completion. Tools execute in
 the native ThinkingBox agent session, one at a time. One malformed-argument
-repair is allowed before execution; successful writes are never replayed by
+or premature/empty-response repair is allowed before execution; successful writes are never replayed by
 the adapter. No task gold answers, initial database patches, reference writes
 or private simulator context are passed to the MAS. The simulator gets only
 its source user context and the conversation, as upstream defines.
+
+The router receives a classification request containing the source policy, tool
+names and observed history as labeled data. Model requests use one leading system
+message containing source and node instructions. A final `<DONE>` response must
+contain substantive text and must not ask for missing information or accompany
+an unexecuted tool request. A final resolution before any tool result also
+triggers the bounded repair, because this source requires a ticket workflow.
+Persistent invalid output is recorded as an error; the adapter does not invent
+a replacement answer. Repair reasons and rejected proposals are retained in
+the routing metadata, outside the customer conversation.
 
 `--num-ctx` defaults to 32768 for every local model call. Increase it if a case
 exhausts context. Large source policies, many tools and long conversations need
@@ -110,7 +125,9 @@ Results go to a new `evaluation/thinkingbox/runs/<UTC timestamp>/` directory:
 
 - `manifest.json`: exact source/model/protocol configuration and selected IDs.
 - `NNN.native.json`: source conversation, actual tool results, effects and checks.
-- `results.json`: native result, routes, both metric scores/reasons, errors.
+- `results.json`: native result, routes/repairs, actual tool names/count, final
+  customer answer, both metric scores/reasons, errors. Console case summaries
+  also show this execution evidence.
 - `summary.json`: requested/recorded counts, native results and DeepEval means.
 
 Files are saved after each task. Existing result directories are never overwritten.
@@ -126,11 +143,25 @@ answers, simulator errors, native test errors and judge errors never receive
 automatic passing scores. Missing scores are `null`, not zero or perfect.
 
 Answer Correctness sees only the final customer-visible answer as actual output.
+Its trailing `<DONE>` control marker is removed in the evaluator representation;
+the native conversation and native checks retain it. An empty substantive answer
+receives zero correctness with `method: empty_answer_check`, a deterministic
+prerequisite result rather than a generated GEval score. Other answers use GEval.
+The summary's metric `methods` counts distinguish these checks from DeepEval calls.
 Earlier clarification and operations are evidence, so a short final answer need
 not repeat every earlier step. Source reference writes describe expected backend
 outcomes, **not a required read/tool sequence or verbatim answer**. The judge
 also receives the applicable policy and observed tool results; unsupported claims
 of successful operations remain errors. Reference material is evaluator-only.
+Task Completion's outcome extractor sees actual conversation and operations;
+reference database differences, golden hashes and policy instructions are not
+included as observed actions. Policy/reference goals are supplied separately as
+requirements. Native effects remain available in the full native artifacts.
+
+Protocol v3 changes actor and evaluator inputs. New scores alone cannot establish
+an improvement over v2: inspect requested/scored counts, errors, actual tool use
+and native checks as well. An 8B specialist comparison is available through
+`--specialist-model llama3.1:8b`; the default remains 0.6B pending a live comparison.
 
 This is a custom MAS/local-simulator/local-judge evaluation,
 **not a leaderboard-comparable score**. Benchmark tasks are used for evaluation;

@@ -175,6 +175,32 @@ class ThinkingBoxTests(unittest.TestCase):
         self.assertIn("Please share your email", str(case.context))
         self.assertIn("SOURCE_POLICY", str(case.context))
         self.assertIn("shipped", case._trace_dict["operations"][0]["result"])
+        self.assertNotIn("GOLD_WRITE", str(case._trace_dict))
+        self.assertNotIn("golden_db_hash", str(case._trace_dict))
+        self.assertNotIn("SOURCE_POLICY", str(case._trace_dict))
+        self.assertNotIn("effects", case._trace_dict)
+
+    def test_done_only_answer_has_explicit_zero_correctness_without_fabricated_judge_score(self):
+        task, result = self.sample()
+        result.test_context.response = "<DONE>"
+        case = build_case("sample", task, result)
+        self.assertEqual(case.actual_output, "")
+        with patch("Evaluations.thinkingbox.answer_correctness.build_metric") as builder:
+            scores = score(case, None, ["Answer Correctness"])
+        builder.assert_not_called()
+        self.assertEqual(scores["Answer Correctness"]["score"], 0)
+        self.assertEqual(scores["Answer Correctness"]["method"], "empty_answer_check")
+        summary = summarize([{"status": "failed", "metrics": scores}], 1)
+        self.assertEqual(
+            summary["metrics"]["Answer Correctness"]["methods"], {"empty_answer_check": 1}
+        )
+
+    def test_done_is_removed_from_visible_answer_but_native_result_is_preserved(self):
+        task, result = self.sample()
+        result.test_context.response = "Your order has shipped. <DONE>"
+        case = build_case("sample", task, result)
+        self.assertEqual(case.actual_output, "Your order has shipped.")
+        self.assertEqual(result.test_context.response, "Your order has shipped. <DONE>")
 
     def test_native_failure_cannot_become_success_from_deepeval(self):
         record = {
@@ -254,6 +280,101 @@ class ThinkingBoxTests(unittest.TestCase):
         self.assertEqual(wire[0]["tool_calls"][0]["id"], "a")
         self.assertEqual(wire[1]["tool_call_id"], "a")
 
+    def test_late_node_instructions_are_sent_with_source_policy_in_one_leading_system(self):
+        wire = encode(
+            [
+                Text(role="system", content="SOURCE_POLICY"),
+                Text(role="user", content="Where is ORD-1?"),
+                Text(role="system", content="IDENTITY_NODE_INSTRUCTIONS"),
+            ]
+        )
+        self.assertEqual([message["role"] for message in wire], ["system", "user"])
+        self.assertIn("SOURCE_POLICY", wire[0]["content"])
+        self.assertIn("IDENTITY_NODE_INSTRUCTIONS", wire[0]["content"])
+        self.assertEqual(wire[1]["content"], "Where is ORD-1?")
+
+    def test_router_gets_a_classification_request_with_observed_history(self):
+        actor = MASSession("qwen3:4b", "qwen3:0.6b")
+        history = [
+            Text(role="system", content="SOURCE_POLICY"),
+            Text(role="user", content="Where is ORD-1?"),
+            ToolResponse(name="get_customer_profile", content='{"id":"CUS-1"}'),
+        ]
+        response = [Text(role="assistant", content='{"agent":"order","next_step":"Read order"}')]
+        with (
+            patch.object(
+                actor.router, "get_completion", new=AsyncMock(return_value=response)
+            ) as router,
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            route = asyncio.run(actor.supervise({"messages": history}))
+        self.assertEqual(route["route"]["agent"], "order")
+        messages = router.call_args.kwargs["conversation"]
+        self.assertEqual([message.role for message in messages], ["system", "user"])
+        self.assertIn("classifier/router", messages[0].content)
+        data = json.loads(messages[1].content)
+        self.assertEqual(data["source_policy"], "SOURCE_POLICY")
+        self.assertIn("CUS-1", str(data["observed_history"]))
+
+    def test_premature_resolution_without_tools_is_repaired_before_reaching_customer(self):
+        actor = MASSession("qwen3:4b", "qwen3:0.6b")
+        actor.add_tools(
+            [
+                ToolDef(
+                    name="get_customer_profile",
+                    description="Read customer",
+                    input_schema={"type": "object"},
+                )
+            ]
+        )
+        actor.add_messages([Text(role="user", content="Where is ORD-1?")])
+        route = [
+            Text(role="assistant", content='{"agent":"identity","next_step":"Resolve customer"}')
+        ]
+        outputs = [
+            [
+                Text(
+                    role="assistant",
+                    content="Delivery is delayed because it was placed 18 days ago. <DONE>",
+                )
+            ],
+            [Text(role="assistant", content="What is the email address on your order?")],
+        ]
+        with (
+            patch.object(actor.router, "get_completion", new=AsyncMock(return_value=route)),
+            patch.object(
+                OllamaSession, "get_completion", new=AsyncMock(side_effect=outputs)
+            ) as worker,
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            result = asyncio.run(actor.get_completion())
+        self.assertEqual(worker.call_count, 2)
+        self.assertEqual(result[0].content, "What is the email address on your order?")
+        self.assertFalse(
+            any(
+                "18 days" in message.content
+                for message in actor.messages
+                if isinstance(message, Text)
+            )
+        )
+
+    def test_repeated_done_only_output_fails_after_one_repair(self):
+        actor = MASSession("qwen3:4b", "qwen3:0.6b")
+        actor.add_messages([Text(role="user", content="Where is ORD-1?")])
+        route = [Text(role="assistant", content='{"agent":"order","next_step":"Read order"}')]
+        with (
+            patch.object(actor.router, "get_completion", new=AsyncMock(return_value=route)),
+            patch.object(
+                OllamaSession,
+                "get_completion",
+                new=AsyncMock(return_value=[Text(role="assistant", content="<DONE>")]),
+            ) as worker,
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            with self.assertRaisesRegex(ValueError, "not a customer answer"):
+                asyncio.run(actor.get_completion())
+        self.assertEqual(worker.call_count, 2)
+
     def test_ollama_schema_context_and_response_are_preserved(self):
         request = httpx.Request("POST", "http://local/api/chat")
         response = httpx.Response(
@@ -328,6 +449,15 @@ class ThinkingBoxTests(unittest.TestCase):
         )
         tools = [
             ToolDef(
+                name="get_customer_profile",
+                description="Read customer profile",
+                input_schema={
+                    "type": "object",
+                    "properties": {"email": {"type": "string"}},
+                    "required": ["email"],
+                },
+            ),
+            ToolDef(
                 name="lookup",
                 description="Lookup order",
                 input_schema={
@@ -335,9 +465,11 @@ class ThinkingBoxTests(unittest.TestCase):
                     "properties": {"id": {"type": "string"}},
                     "required": ["id"],
                 },
-            )
+            ),
         ]
-        proxy = SimpleNamespace(call_tool=AsyncMock(return_value='{"status":"shipped"}'))
+        proxy = SimpleNamespace(
+            call_tool=AsyncMock(side_effect=['{"id":"CUS-1"}', '{"status":"shipped"}'])
+        )
         agent = AgentSession.from_config(
             config=config,
             mcp_proxy=proxy,
@@ -346,29 +478,60 @@ class ThinkingBoxTests(unittest.TestCase):
             scenario_metadata={},
             agent_model=actor,
         )
-        route = [Text(role="assistant", content='{"agent":"order","next_step":"Read and answer"}')]
+        routes = [
+            [Text(role="assistant", content=json.dumps({"agent": role, "next_step": step}))]
+            for role, step in [
+                ("identity", "Ask for email"),
+                ("identity", "Read profile"),
+                ("order", "Read order"),
+                ("order", "Report status"),
+            ]
+        ]
         outputs = [
+            [Text(role="assistant", content="What is the email address on your order?")],
+            [
+                ParallelToolCall(
+                    tool_calls=[
+                        ToolCall(
+                            name="get_customer_profile", arguments={"email": "customer@example.com"}
+                        )
+                    ]
+                )
+            ],
             [ParallelToolCall(tool_calls=[ToolCall(name="lookup", arguments={"id": "ORD-1"})])],
             [Text(role="assistant", content="Your order is shipped. <DONE>")],
         ]
 
         async def drive():
-            return [
+            first = [
                 message
                 async for message in agent.decode_turn_iter(
                     Text(role="user", content="Where is ORD-1?")
                 )
             ]
+            self.assertIsNone(agent.should_end_conversation())
+            second = [
+                message
+                async for message in agent.decode_turn_iter(
+                    Text(role="user", content="customer@example.com")
+                )
+            ]
+            return first + second
 
         with (
-            patch.object(actor.router, "get_completion", new=AsyncMock(return_value=route)),
+            patch.object(actor.router, "get_completion", new=AsyncMock(side_effect=routes)),
             patch.object(OllamaSession, "get_completion", new=AsyncMock(side_effect=outputs)),
         ):
             with contextlib.redirect_stdout(io.StringIO()):
                 asyncio.run(drive())
-        proxy.call_tool.assert_awaited_once_with("lookup", id="ORD-1")
+        self.assertEqual(proxy.call_tool.await_count, 2)
+        self.assertEqual(proxy.call_tool.await_args_list[0].args, ("get_customer_profile",))
+        self.assertEqual(proxy.call_tool.await_args_list[1].kwargs, {"id": "ORD-1"})
         self.assertEqual(agent.should_end_conversation(), "done")
-        self.assertEqual(len(agent.conversation.metadata["tool_calls"]), 1)
+        self.assertEqual(len(agent.conversation.metadata["tool_calls"]), 2)
+        self.assertEqual(
+            [step["agent"] for step in actor.steps], ["identity", "identity", "order", "order"]
+        )
         self.assertTrue(any(isinstance(message, ToolResponse) for message in actor.messages))
 
 

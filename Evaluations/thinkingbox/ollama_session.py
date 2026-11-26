@@ -12,10 +12,14 @@ from thinkingbox.common.usage_types import Usage
 
 def encode(messages):
     result = []
+    systems = []
     for message in messages:
         if isinstance(message, Text):
             if message.is_visible:
-                result.append({"role": message.role, "content": message.content})
+                if message.role == "system":
+                    systems.append(message.content)
+                else:
+                    result.append({"role": message.role, "content": message.content})
         elif isinstance(message, (ParallelToolCall, ToolCall)):
             calls = message.tool_calls if isinstance(message, ParallelToolCall) else [message]
             result.append(
@@ -43,7 +47,9 @@ def encode(messages):
             )
         else:
             raise TypeError(f"Unsupported ThinkingBox message: {type(message).__name__}")
-    return result
+    # Present source policy and node instructions as one leading system message,
+    # independent of how an Ollama model's template handles later system turns.
+    return ([{"role": "system", "content": "\n\n".join(systems)}] if systems else []) + result
 
 
 class OllamaSession(LLMSessionBase):

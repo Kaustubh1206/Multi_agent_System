@@ -4,18 +4,23 @@
   pinned 507-task release. Audit confirmed only `sandbox_external_retail`, and
   every selected native test script compiled.
 - `run.py --list` and both standalone DeepEval metric scripts list 98 tasks.
-- Full regression suite: **84 tests passed**, including **15 ThinkingBox tests**.
+- Full regression suite: **90 tests passed**, including **21 ThinkingBox tests**.
   Checks cover rejection of other domains through the CLI/task loader/backend
-  validation, native retail end-state assertion failures, conversation/tool
-  history, bounded schema repair, both actual DeepEval metric implementations
+  validation, native retail end-state assertion failures, identity clarification
+  followed by identity/order tool calls with retained history, bounded schema and
+  response-protocol repair, actual/reference evidence separation, marker-only
+  answer scoring, both actual DeepEval metric implementations
   with a controlled judge, and blocked-run/judge-error reporting.
 - Ruff checks and `git diff --check` passed.
 - Only the retail MCP server is configured. The MAS prompts and result manifests
-  identify the retail scope under protocol `thinkingbox-retail-mas-v2`.
+  identify the retail scope under protocol `thinkingbox-retail-mas-v3`.
 
-**No live MAS/DeepEval benchmark scores were produced.** The default command
-selected 98 retail tasks but preflight found no running Ollama server. The saved
-report records 98 blocked cases and zero scored metrics, without inventing results.
+**No live post-change MAS/DeepEval scores were produced in the cloud.** The user's
+earlier 98-case v2 output is analyzed in
+[Results_Thinking_analysis.md](Results_Thinking_analysis.md). The v3 smoke attempt
+found no running Ollama server; the cloud cannot establish an improvement from
+controlled tests. An earlier default preflight selected 98 retail tasks and
+recorded 98 blocked cases with zero scored metrics, without inventing results.
 
 An earlier retail backend component smoke initialized the real source MCP server;
 executing its first task's reference writes produced the expected native database
@@ -23,7 +28,7 @@ hash. Retrieval was disabled only in that component smoke because the retrieval
 model download is blocked here. This verifies backend wiring, not MAS behavior or
 benchmark performance. Production tasks retain their source retrieval setup.
 
-The cloud network also denied `dl.typesense.org` and `models.typesense.org`.
+Earlier cloud checks also encountered denials for `dl.typesense.org` and `models.typesense.org`.
 For the service/component checks only, Typesense 30.1 was obtained from the
 official `typesense/typesense:30.1` container image (digest
 `sha256:91604dc128e2023e7cba34ae8bd36f68351bcb74ea33a84960bfdc5649cf43b3`).

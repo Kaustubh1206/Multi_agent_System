@@ -41,19 +41,27 @@ class LocalJudge(DeepEvalBaseLLM):
         return schema.model_validate_json(text) if schema else text
 
 
+def customer_text(text):
+    """Remove only the source's trailing control marker from customer-facing text."""
+    return text.strip().removesuffix("<DONE>").rstrip()
+
+
 def build_case(name, task, result):
     context = result.test_context
     if context is None:
         raise ValueError("Missing native test context")
     # tc.init and user_context NEVER enter the MAS factory. Only this grader sees goals.
     reference = {server: init.get("golden_test_case", {}) for server, init in task.init.items()}
-    requirements = {
-        "request": task.query,
-        "private_user_goal": task.user_context,
-        "reference_backend_outcomes": reference,
-        "interpretation": "Reference writes specify outcomes, not an exact tool sequence "
-        "or verbatim customer answer. Actual writes must be verified independently.",
-    }
+    requirements = (
+        "CUSTOMER GOAL:\n"
+        + task.query
+        + "\nPRIVATE USER CONTEXT (constraints/preferences, not wording to repeat):\n"
+        + (task.user_context or "")
+        + "\nREQUIRED BACKEND OUTCOMES (reference only; these actions were NOT necessarily executed):\n"
+        + json.dumps(reference, ensure_ascii=False)
+        + "\nReference writes specify outcomes, not an exact tool sequence or verbatim customer answer. "
+        "Only observed tool calls/results establish what the agent actually did."
+    )
     observed = [
         {
             "tool": item.tool_call.name,
@@ -63,7 +71,10 @@ def build_case(name, task, result):
         for item in context.tool_calls
     ]
     conversation = [
-        {"role": msg.role, "content": msg.content}
+        {
+            "role": msg.role,
+            "content": customer_text(msg.content) if msg.role == "assistant" else msg.content,
+        }
         for msg in result.messages
         if isinstance(msg, Text) and msg.is_visible and msg.role != "system"
     ]
@@ -78,32 +89,27 @@ def build_case(name, task, result):
         if result.test_result
         else None
     )
-    # Native artifacts retain whole databases. The judge needs outcomes and diffs,
-    # not three copies of every unrelated customer/record in the sandbox.
-    effects = {
-        server: {
-            key: value
-            for key, value in evidence.items()
-            if key not in {"initial_db_state", "result_db_state", "golden_db_state"}
-        }
-        for server, evidence in context.effects.items()
-    }
+    # Expected database diffs/hashes are grader artifacts, not observed MAS actions.
+    # Keep them in the saved native report, outside the actual workflow supplied to
+    # DeepEval's outcome extractor. Source instructions are also not executed steps.
     workflow = {
         "conversation": conversation,
         "operations": observed,
-        "native_checks": native,
-        "effects": effects,
+        "observed_tool_call_count": len(observed),
         "finish_reason": result.finish_reason,
     }
+    answer = customer_text(context.response)
     case = LLMTestCase(
         name=name,
         input=task.query,
-        actual_output=context.response,
-        expected_output=json.dumps(requirements, ensure_ascii=False),
+        actual_output=answer,
+        expected_output=requirements,
         context=[
             "SOURCE POLICY AND INSTRUCTIONS:\n" + policy,
             "OBSERVED WORKFLOW (including earlier clarification):\n"
             + json.dumps(workflow, ensure_ascii=False),
+            "INDEPENDENT NATIVE CHECK RESULT (grader metadata, not agent activity):\n"
+            + json.dumps(native, ensure_ascii=False),
         ],
         tools_called=[
             ToolCall(
@@ -113,6 +119,7 @@ def build_case(name, task, result):
             )
             for item in context.tool_calls
         ],
+        metadata={"source_policy": policy, "native_checks": native},
     )
     # DeepEval 4.3.4's native agentic metric consumes this in-memory evidence.
     # This is evaluation input, not a separate trace collection pipeline.
@@ -120,8 +127,7 @@ def build_case(name, task, result):
         "type": "agent",
         "name": "thinkingbox_retail_mas",
         "input": task.query,
-        "output": context.response,
-        "source_policy": policy,
+        "output": answer,
         **workflow,
     }
     return case
@@ -135,6 +141,15 @@ def score(case, judge, metric_names):
     builders = {"Task Completion": completion, "Answer Correctness": answer}
     for name in metric_names:
         try:
+            if name == "Answer Correctness" and not case.actual_output.strip():
+                results[name] = {
+                    "status": "scored",
+                    "score": 0.0,
+                    "passed": False,
+                    "method": "empty_answer_check",
+                    "reason": "No substantive customer-facing answer; a control marker alone is not an answer.",
+                }
+                continue
             metric = builders[name](judge)
             metric.measure(case)
             if metric.score is None:

@@ -17,6 +17,8 @@ not an exact required sequence of read/tool calls or required customer wording.
 The task may require real state changes, ticket creation/update and follow-through.
 A proposed tool call or a promise is not a completed action. Respect source-domain
 authorization and confirmation requirements; do not invent universal retail rules.
+Only OBSERVED operations/results are completed actions. Reference writes, source
+policy instructions, database diffs and grader computations are not agent actions.
 Earlier identification, clarification and successful actions need not be repeated
 in the final answer. Denials and clarifications complete the task only when the
 source goal/policy warrants them. Do not penalize concise, equivalent wording or
@@ -31,7 +33,13 @@ class ThinkingBoxCompletion(TaskCompletionMetric):
         )
 
     def measure(self, test_case, *args, **kwargs):
-        self.task = SCOPE + "\nCase goal and reference outcomes:\n" + test_case.expected_output
+        self.task = (
+            SCOPE
+            + "\nCase goal and reference outcomes:\n"
+            + test_case.expected_output
+            + "\nSOURCE POLICY (requirements, not completed actions):\n"
+            + (test_case.metadata or {}).get("source_policy", "")
+        )
         self._is_task_provided = True
         return super().measure(test_case, *args, **kwargs)
 

@@ -25,7 +25,7 @@ from Evaluations.thinkingbox.dataset import (
 )
 
 METRICS = ["Task Completion", "Answer Correctness"]
-PROTOCOL = "thinkingbox-retail-mas-v2"
+PROTOCOL = "thinkingbox-retail-mas-v3"
 
 
 def preflight(args):
@@ -126,6 +126,13 @@ def summarize(records, requested):
             "scored": len(scores),
             "mean": sum(scores) / len(scores) if scores else None,
             "passed": sum(score >= 0.8 for score in scores),
+            "methods": dict(
+                Counter(
+                    record["metrics"][name].get("method", "deepeval")
+                    for record in records
+                    if record.get("metrics", {}).get(name, {}).get("status") == "scored"
+                )
+            ),
         }
     return {
         "scope": "retail-only",
@@ -153,7 +160,12 @@ def write_json(path, value):
 
 
 def run(args, selected, metric_names):
-    from Evaluations.thinkingbox.scoring import LocalJudge, build_case, score
+    from Evaluations.thinkingbox.scoring import (
+        LocalJudge,
+        build_case,
+        customer_text,
+        score,
+    )
     from Evaluations.thinkingbox.services import services
 
     output = args.output or ROOT / "evaluation/thinkingbox/runs" / datetime.now(
@@ -194,6 +206,12 @@ def run(args, selected, metric_names):
                     write_json(output / f"{index:03d}.native.json", result.model_dump(mode="json"))
                     record["routing"] = steps
                     record["finish_reason"] = result.finish_reason
+                    context = result.test_context
+                    record["observed_tool_calls"] = len(context.tool_calls) if context else None
+                    record["tool_names"] = (
+                        [item.tool_call.name for item in context.tool_calls] if context else []
+                    )
+                    record["final_answer"] = customer_text(context.response) if context else None
                     record["native"] = (
                         result.test_result.model_dump(mode="json") if result.test_result else None
                     )
@@ -238,6 +256,10 @@ def run(args, selected, metric_names):
                             if native and not native.get("is_system_error")
                             else None,
                             "metrics": record["metrics"],
+                            "finish_reason": record.get("finish_reason"),
+                            "observed_tool_calls": record.get("observed_tool_calls"),
+                            "tool_names": record.get("tool_names", []),
+                            "final_answer": record.get("final_answer"),
                             "error": record.get("error"),
                         },
                         ensure_ascii=False,

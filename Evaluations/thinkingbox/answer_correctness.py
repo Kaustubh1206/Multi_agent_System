@@ -32,8 +32,13 @@ def build_metric(judge):
             "EXPECTED_OUTPUT describes source goals and reference backend outcomes, not a verbatim "
             "answer or exact tool sequence. Check requested facts, correct conclusions and substantive "
             "completion claims against actual tool results and applicable policy.",
+            "Reference operations were not necessarily executed. Only OBSERVED operations/results "
+            "establish completed actions. The private user context is not the agent's expected reply. "
+            "Do not invent tool calls or treat independent grader checks as actions by the agent.",
             "Accept concise equivalent wording and additional relevant supported facts. Do not require "
             "internal IDs, database hashes, exact ticket prose, or implementation details in the answer.",
+            "The trailing <DONE> marker is an internal protocol detail, not answer wording. Its "
+            "absence from reference material is not an error. An empty substantive answer is incorrect.",
             "Penalize invented facts, incorrect eligibility/status/amounts, unauthorized disclosure, "
             "missing requested information and claims of operations that did not actually succeed. "
             "Read negations literally. Cite the exact unsupported or contradictory claim; do not infer "
