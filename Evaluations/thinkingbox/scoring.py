@@ -118,7 +118,7 @@ def build_case(name, task, result):
     # This is evaluation input, not a separate trace collection pipeline.
     case._trace_dict = {
         "type": "agent",
-        "name": "thinkingbox_mas",
+        "name": "thinkingbox_retail_mas",
         "input": task.query,
         "output": context.response,
         "source_policy": policy,

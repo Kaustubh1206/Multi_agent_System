@@ -1,24 +1,27 @@
-# Validation performed in the cloud
+# Retail-only validation performed in the cloud
 
-- Shared root environment installed successfully with `uv sync --frozen --extra thinkingbox`.
-- All **507** canonical tasks hydrated; expected five-domain counts matched;
+- The default suite selects exactly **98 unique canonical retail tasks** from the
+  pinned 507-task release. Audit confirmed only `sandbox_external_retail`, and
   every selected native test script compiled.
-- Full regression suite: **81 tests passed**. The 12 ThinkingBox tests include
-  native agent tool execution/history, bounded argument repair, native test
-  subprocesses for all five domains, both real DeepEval metric implementations
-  with a controlled judge, and honest reporting of blocked runs/judge errors.
-- The affected 12-test suite passed again after the final runner/service changes.
-- Ruff checks and `git diff --check` passed; `uv lock --check` passed.
-- Separate component smoke: real source MCP servers initialized in all five
-  domains; executing each first task's reference writes produced the expected
-  native database hash. **Retrieval was disabled only in that component smoke**
-  because the retrieval-model download is blocked here. This verifies backend
-  wiring, not MAS behavior or benchmark performance. Production task initialization
-  retains the original retrieval configuration.
+- `run.py --list` and both standalone DeepEval metric scripts list 98 tasks.
+- Full regression suite: **84 tests passed**, including **15 ThinkingBox tests**.
+  Checks cover rejection of other domains through the CLI/task loader/backend
+  validation, native retail end-state assertion failures, conversation/tool
+  history, bounded schema repair, both actual DeepEval metric implementations
+  with a controlled judge, and blocked-run/judge-error reporting.
+- Ruff checks and `git diff --check` passed.
+- Only the retail MCP server is configured. The MAS prompts and result manifests
+  identify the retail scope under protocol `thinkingbox-retail-mas-v2`.
 
-**No live MAS/DeepEval benchmark scores were produced.** The full default command
-selected all 507 tasks but preflight found no running Ollama server. It recorded
-507 blocked cases and zero scored metrics, without inventing results.
+**No live MAS/DeepEval benchmark scores were produced.** The default command
+selected 98 retail tasks but preflight found no running Ollama server. The saved
+report records 98 blocked cases and zero scored metrics, without inventing results.
+
+An earlier retail backend component smoke initialized the real source MCP server;
+executing its first task's reference writes produced the expected native database
+hash. Retrieval was disabled only in that component smoke because the retrieval
+model download is blocked here. This verifies backend wiring, not MAS behavior or
+benchmark performance. Production tasks retain their source retrieval setup.
 
 The cloud network also denied `dl.typesense.org` and `models.typesense.org`.
 For the service/component checks only, Typesense 30.1 was obtained from the
@@ -30,4 +33,4 @@ The actual unmodified source session initialization then exposed the blocked
 macOS downloads/platform selection follow the pinned upstream installer, but
 macOS execution and real local model quality were not tested on this Linux cloud.
 Run the commands in [README.md](README.md) on the local Ollama machine to obtain
-the complete 507-task results.
+the complete 98-task retail results.

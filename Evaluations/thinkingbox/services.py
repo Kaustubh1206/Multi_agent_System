@@ -1,4 +1,4 @@
-"""Start only the five release servers and a private Typesense instance."""
+"""Start the retail source server and a private Typesense instance."""
 
 import hashlib
 import os
@@ -16,7 +16,7 @@ from pathlib import Path
 import httpx
 import yaml
 
-from Evaluations.thinkingbox.dataset import DATA, MANIFEST, ROOT, prepare_source
+from Evaluations.thinkingbox.dataset import DATA, RETAIL_DOMAIN, ROOT, prepare_source
 
 CACHE = ROOT / ".cache" / "thinkingbox"
 TYPESENSE_SHA256 = {
@@ -126,7 +126,7 @@ def services():
                 "command": ["{python}", "-m", f"tb_business_ops_servers_202606.mcp_{name}"],
                 "env": {"TYPESENSE_API_KEY": "Fake"},
             }
-            for name in MANIFEST["domain_counts"]
+            for name in (RETAIL_DOMAIN,)
         },
     }
     config_path = CACHE / "servers.yaml"

@@ -15,5 +15,10 @@
     "sandbox_neobank_support_v1": 104
   },
   "leaderboard_comparable": false,
-  "source_note": "Official data URL was unavailable; pinned public mirror, not verified as an official release tag."
+  "source_note": "Official data URL was unavailable; pinned public mirror, not verified as an official release tag.",
+  "evaluation_scope": {
+    "domain": "sandbox_external_retail",
+    "task_count": 98,
+    "selection": "sandbox_external_retail_group1.py: task references from the canonical release list"
+  }
 }

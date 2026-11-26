@@ -29,7 +29,13 @@ if AVAILABLE:
     from thinkingbox.common.config_types import AgentConfig, CustomSessionConfig
     from thinkingbox.common.testrunner import TestScriptSubprocess
 
-    from Evaluations.thinkingbox.dataset import audit, load_tasks, task_names
+    from Evaluations.thinkingbox.dataset import (
+        RETAIL_DOMAIN,
+        audit,
+        load_tasks,
+        task_names,
+        validate_retail_task,
+    )
     from Evaluations.thinkingbox.mas import MASSession
     from Evaluations.thinkingbox.ollama_session import OllamaSession, encode
     from Evaluations.thinkingbox.run import METRICS, main, summarize
@@ -38,26 +44,54 @@ if AVAILABLE:
 
 @unittest.skipUnless(AVAILABLE, "Install the root thinkingbox extra for adapter tests")
 class ThinkingBoxTests(unittest.TestCase):
-    def test_canonical_release_is_507_unique_tasks(self):
+    def test_selection_is_exactly_98_unique_canonical_retail_tasks(self):
         names = task_names()
-        self.assertEqual(len(names), 507)
-        self.assertEqual(len(set(names)), 507)
-        self.assertTrue(all(":" in name for name in names))
+        self.assertEqual(len(names), 98)
+        self.assertEqual(len(set(names)), 98)
+        self.assertTrue(
+            all(name.startswith("sandbox_external_retail_group1.py:") for name in names)
+        )
+
+    def test_non_retail_case_is_rejected_before_preflight(self):
+        with (
+            patch("sys.argv", ["run.py", "--case", "external_booking_v1_group1.py:test_bmd_001"]),
+            patch("Evaluations.thinkingbox.run.preflight") as preflight,
+            contextlib.redirect_stderr(io.StringIO()),
+        ):
+            with self.assertRaises(SystemExit) as error:
+                main()
+        self.assertEqual(error.exception.code, 2)
+        preflight.assert_not_called()
+
+    def test_task_loader_rejects_other_domains_before_fetching_source(self):
+        with patch("Evaluations.thinkingbox.dataset.prepare_source") as prepare:
+            with self.assertRaisesRegex(ValueError, "retail task IDs"):
+                load_tasks(["external_booking_v1_group1.py:test_bmd_001"])
+        prepare.assert_not_called()
+
+    def test_task_validation_rejects_an_unexpected_backend(self):
+        task = SimpleNamespace(
+            scenario=SimpleNamespace(world_state={"external_booking_v1": {}}),
+            init={"external_booking_v1": {}},
+        )
+        with self.assertRaisesRegex(ValueError, "retail MAS"):
+            validate_retail_task(task)
 
     @unittest.skipUnless(
         (Path(__file__).resolve().parents[1] / ".cache/thinkingbox-data").exists(),
         "Source hydration audit requires the pinned source cache",
     )
-    def test_all_source_cases_hydrate_with_expected_domain_counts(self):
+    def test_only_retail_source_cases_hydrate_with_expected_count(self):
         result = audit()
-        self.assertEqual(result["tasks"], 507)
-        self.assertEqual(sum(result["domains"].values()), 507)
+        self.assertEqual(result["tasks"], 98)
+        self.assertEqual(result["domains"], {RETAIL_DOMAIN: 98})
+        self.assertEqual(result["scope"], "retail-only")
 
     @unittest.skipUnless(
         (Path(__file__).resolve().parents[1] / ".cache/thinkingbox-data").exists(),
         "Requires the pinned source cache",
     )
-    def test_native_check_subprocess_rejects_wrong_state_in_every_domain(self):
+    def test_native_retail_check_subprocess_rejects_wrong_state(self):
         seen = set()
         for task in load_tasks():
             domain = next(iter(task.scenario.world_state))
@@ -88,7 +122,7 @@ class ThinkingBoxTests(unittest.TestCase):
                 self.assertFalse(result.result)
                 self.assertFalse(result.is_system_error, result.tb)
                 self.assertIn("hash", result.tb.lower())
-        self.assertEqual(len(seen), 5)
+        self.assertEqual(seen, {RETAIL_DOMAIN})
 
     def sample(self):
         messages = [
@@ -148,10 +182,10 @@ class ThinkingBoxTests(unittest.TestCase):
             "native": {"result": False, "reward": 0},
             "metrics": {name: {"status": "scored", "score": 1.0} for name in METRICS},
         }
-        summary = summarize([record], 507)
+        summary = summarize([record], 98)
         self.assertEqual(summary["native_successes"], 0)
         self.assertEqual(summary["metrics"][METRICS[0]]["scored"], 1)
-        self.assertEqual(summary["requested"], 507)
+        self.assertEqual(summary["requested"], 98)
 
     def test_missing_judge_scores_remain_errors_and_null(self):
         task, result = self.sample()
@@ -182,7 +216,7 @@ class ThinkingBoxTests(unittest.TestCase):
         scores = score(build_case("sample", task, result), ControlledJudge(), METRICS)
         self.assertTrue(all(metric["status"] == "scored" for metric in scores.values()), scores)
 
-    def test_default_run_selects_all_tasks_and_missing_models_block_all(self):
+    def test_default_run_selects_98_retail_tasks_and_missing_models_block_all(self):
         with tempfile.TemporaryDirectory() as temporary:
             target = Path(temporary) / "run"
             with (
@@ -198,8 +232,12 @@ class ThinkingBoxTests(unittest.TestCase):
                     main()
             self.assertEqual(error.exception.code, 2)
             records = json.loads((target / "results.json").read_text())
-            self.assertEqual(len(records), 507)
+            self.assertEqual(len(records), 98)
             self.assertTrue(all(record["status"] == "blocked" for record in records))
+            self.assertEqual({record["task"] for record in records}, set(task_names()))
+            manifest = json.loads((target / "manifest.json").read_text())
+            self.assertEqual(manifest["domain"], RETAIL_DOMAIN)
+            self.assertEqual(manifest["scope"], "retail-only")
             self.assertEqual(
                 json.loads((target / "summary.json").read_text())["metrics"][METRICS[0]]["scored"],
                 0,

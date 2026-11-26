@@ -1,17 +1,15 @@
 # ThinkingBox-Bench with the MAS
 
-This branch replaces the τ-bench integration with **all 507 canonical
-ThinkingBox-Bench v1.0 tasks**. No `--limit` means the complete release list,
-including its rubric variants, without discovering extra development tasks.
+This branch evaluates **all 98 retail and ecommerce tasks** from ThinkingBox-Bench
+v1.0 using the retail supervisor/identity/order/policy MAS and DeepEval **Task
+Completion** and **Answer Correctness**. Running without `--limit` executes all
+98 retail tasks. Other domains cannot be selected through `--case` or the task
+loader, and only the retail MCP server is enabled.
 
-| Domain | Tasks |
-| --- | ---: |
-| Retail and ecommerce | 98 |
-| Travel and hospitality | 104 |
-| Auto insurance | 100 |
-| Neobank support | 104 |
-| Consulting IT/HR | 101 |
-| **Total** | **507** |
+The upstream release contains 507 tasks across five domains. The full pinned
+canonical task list is retained for provenance; this runner selects only its
+`sandbox_external_retail_group1.py:` entries. It preserves the original retail
+task queries, fixtures, policies, tools, user simulator protocol and native checks.
 
 ## Run locally
 
@@ -20,7 +18,8 @@ there is no nested evaluation project. From the repository root:
 
 ```bash
 git fetch origin
-git switch --track origin/ThinkingBox
+git switch ThinkingBox
+git pull --ff-only
 uv sync --frozen --extra thinkingbox
 source .venv/bin/activate
 
@@ -30,7 +29,7 @@ ollama pull llama3.1:8b
 ```
 
 Start Ollama if it is not already running (`ollama serve` in another terminal).
-Then validate the source and run **all tasks with both metrics**:
+Then validate the source and run **all 98 retail tasks with both metrics**:
 
 ```bash
 python Evaluations/thinkingbox/run.py --audit
@@ -48,7 +47,7 @@ ports **8108 and 7111** (plus Typesense peering port **8107**), and stops the pr
 must be free; it leaves existing services alone. Typesense may download its
 `ts/e5-small` retrieval model on first use, so allow that download as well as the
 Typesense binary download. Every task receives fresh native sandbox state.
-Only the five release servers are enabled; no τ-bench server is enabled.
+Only `sandbox_external_retail` is enabled.
 
 Run a small connectivity check first if desired:
 
@@ -82,8 +81,8 @@ python Evaluations/thinkingbox/run.py --specialist-model llama3.1:8b
 ```
 
 The ThinkingBox adapter in `mas.py` uses a LangGraph supervisor and the familiar
-identity/order/policy specialist structure. Here `order` handles domain operations
-across all five domains. All specialists have the source scenario's tools;
+identity/order/policy specialist structure. The supervisor routes retail identity,
+order and policy work. All specialists have the retail source scenario's tools;
 roles guide responsibility without hiding a tool needed for a valid workflow.
 Source instructions control authentication, confirmation and ticket lifecycle.
 The source `think` agent's termination/builtin-tool protocol is preserved.
@@ -155,6 +154,6 @@ checkout must remain clean and at the pinned commit; it is never reset silently.
 The canonical list is redistributed alongside the source's full
 [license](source/LICENSE.txt): data is CDLA-Permissive-2.0; server code is MIT.
 
-The cloud validation can hydrate all 507 tasks without Ollama. Live MAS and
+The cloud validation can hydrate all 98 retail tasks without Ollama. Live MAS and
 DeepEval scores require the local models; a successful audit alone is not a
 completed benchmark run.

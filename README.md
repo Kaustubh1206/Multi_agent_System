@@ -176,7 +176,7 @@ keep its results separate from the original report. The two focused metric
 definitions live in their respective scripts; shared execution remains in
 `Evaluations/runner.py`.
 
-Branch `ThinkingBox` evaluates all 507 ThinkingBox-Bench v1.0 tasks with a
+Branch `ThinkingBox` evaluates the 98 retail tasks from ThinkingBox-Bench v1.0 with a
 supervisor/specialist MAS, source tools and policies, native checks, and DeepEval
 Task Completion and Answer Correctness. See
 [ThinkingBox setup and commands](Evaluations/thinkingbox/README.md).

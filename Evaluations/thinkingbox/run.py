@@ -1,4 +1,4 @@
-"""Run all 507 source tasks once, their native checks, and two DeepEval metrics."""
+"""Run the 98 ThinkingBox retail tasks, native checks, and two DeepEval metrics."""
 
 import argparse
 import asyncio
@@ -16,14 +16,16 @@ from Evaluations import model
 from Evaluations.thinkingbox.dataset import (
     DATA,
     MANIFEST,
+    RETAIL_DOMAIN,
     ROOT,
     audit,
     load_tasks,
     task_names,
+    validate_retail_task,
 )
 
 METRICS = ["Task Completion", "Answer Correctness"]
-PROTOCOL = "thinkingbox-mas-v1"
+PROTOCOL = "thinkingbox-retail-mas-v2"
 
 
 def preflight(args):
@@ -45,6 +47,7 @@ def preflight(args):
 
 
 async def execute(name, task, args):
+    validate_retail_task(task)
     from thinkingbox.common.agent_session import AgentSession
     from thinkingbox.common.agent_user_loop import run_agent_user_loop
     from thinkingbox.common.config_types import (
@@ -125,6 +128,8 @@ def summarize(records, requested):
             "passed": sum(score >= 0.8 for score in scores),
         }
     return {
+        "scope": "retail-only",
+        "domain": RETAIL_DOMAIN,
         "requested": requested,
         "recorded": len(records),
         "complete": len(records) == requested
@@ -161,6 +166,8 @@ def run(args, selected, metric_names):
         output / "manifest.json",
         {
             "protocol": PROTOCOL,
+            "scope": "retail-only",
+            "domain": RETAIL_DOMAIN,
             "source": MANIFEST,
             "config": config,
             "metrics": metric_names,
@@ -261,13 +268,15 @@ def main(metric_name=None):
     parser.add_argument(
         "--audit",
         action="store_true",
-        help="Hydrate and validate all 507 tasks; no models/services",
+        help="Hydrate and validate all 98 retail tasks; no models/services",
     )
-    parser.add_argument("--list", action="store_true", help="Print all canonical task IDs")
+    parser.add_argument("--list", action="store_true", help="Print canonical retail task IDs")
     parser.add_argument(
         "--case", action="append", help="Exact canonical filename:test_name; repeatable"
     )
-    parser.add_argument("--limit", type=int, help="Explicit smoke-test subset; default is all 507")
+    parser.add_argument(
+        "--limit", type=int, help="Explicit smoke-test subset; default is all 98 retail tasks"
+    )
     parser.add_argument(
         "--model", default=model.eval_model, help="DeepEval and native rubric judge"
     )
@@ -292,7 +301,7 @@ def main(metric_name=None):
         parser.error("--num-ctx must be at least 8192; 32768 or more recommended")
     selected = args.case or names
     if len(set(selected)) != len(selected) or set(selected) - set(names):
-        parser.error("--case must contain unique canonical task IDs (see --list)")
+        parser.error("--case must contain unique canonical retail task IDs (see --list)")
     if args.limit:
         selected = selected[: args.limit]
     raise SystemExit(run(args, selected, [metric_name] if metric_name else METRICS))

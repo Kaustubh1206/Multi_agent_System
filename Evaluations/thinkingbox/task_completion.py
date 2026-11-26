@@ -10,7 +10,7 @@ from Evaluations import model  # noqa: F401 -- configure DeepEval before importi
 
 from deepeval.metrics import TaskCompletionMetric  # isort: skip
 
-SCOPE = """Evaluate this customer's requested task in its source domain.
+SCOPE = """Evaluate this retail customer's requested task under the source retail policy.
 Use the source policy, observed conversation, actual tool inputs/results and
 native end-state checks. Reference write operations describe required outcomes,
 not an exact required sequence of read/tool calls or required customer wording.
