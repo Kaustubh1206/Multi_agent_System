@@ -1,0 +1,10 @@
+{
+  "requested_trials": 1,
+  "scored": 1,
+  "errors": 0,
+  "successes": 0,
+  "native_mean_reward": 0.0,
+  "complete": true,
+  "success_rate_over_requested": 0.0,
+  "leaderboard_comparable": false
+}

@@ -1,0 +1,9 @@
+Traceback (most recent call last):
+  File "/Users/kaustubh/Desktop/Multi_agent_System/Evaluations/tau_native/run.py", line 254, in main
+    simulation = run_task(
+                 ^^^^^^^^^
+  File "/Users/kaustubh/Desktop/Multi_agent_System/Evaluations/tau_native/run.py", line 84, in run_task
+    validate_reward(task, simulation)
+  File "/Users/kaustubh/Desktop/Multi_agent_System/Evaluations/tau_native/run.py", line 62, in validate_reward
+    raise ValueError("Native NL judge omitted, duplicated, or changed required assertions")
+ValueError: Native NL judge omitted, duplicated, or changed required assertions

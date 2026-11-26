@@ -1,0 +1,9 @@
+[
+  {
+    "task_id": "69",
+    "trial": 1,
+    "status": "error",
+    "reward": null,
+    "error": "ValidationError: 1 validation error for parameters\nnew_item_ids\n  Field required [type=missing, input_value={'order_id': '#W2417020',...d': 'gift_card_8541487'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.14/v/missing"
+  }
+]

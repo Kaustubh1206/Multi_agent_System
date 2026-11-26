@@ -1,0 +1,100 @@
+[
+  {
+    "task_id": "69",
+    "trial": 1,
+    "status": "scored",
+    "reward": 0.0,
+    "reward_breakdown": {
+      "reward": 0.0,
+      "db_check": {
+        "db_match": false,
+        "db_reward": 0.0
+      },
+      "env_assertions": [],
+      "action_checks": [
+        {
+          "action": {
+            "action_id": "69_0",
+            "requestor": "assistant",
+            "name": "find_user_id_by_name_zip",
+            "arguments": {
+              "first_name": "Emma",
+              "last_name": "Smith",
+              "zip": "10192"
+            },
+            "info": null,
+            "compare_args": null
+          },
+          "action_match": false,
+          "action_reward": 0.0,
+          "tool_type": "read"
+        },
+        {
+          "action": {
+            "action_id": "69_1",
+            "requestor": "assistant",
+            "name": "get_user_details",
+            "arguments": {
+              "user_id": "emma_smith_8564"
+            },
+            "info": null,
+            "compare_args": null
+          },
+          "action_match": false,
+          "action_reward": 0.0,
+          "tool_type": "read"
+        },
+        {
+          "action": {
+            "action_id": "69_2",
+            "requestor": "assistant",
+            "name": "get_order_details",
+            "arguments": {
+              "order_id": "#W2417020"
+            },
+            "info": null,
+            "compare_args": null
+          },
+          "action_match": false,
+          "action_reward": 0.0,
+          "tool_type": "read"
+        },
+        {
+          "action": {
+            "action_id": "69_3",
+            "requestor": "assistant",
+            "name": "cancel_pending_order",
+            "arguments": {
+              "order_id": "#W2417020",
+              "reason": "no longer needed"
+            },
+            "info": null,
+            "compare_args": null
+          },
+          "action_match": false,
+          "action_reward": 0.0,
+          "tool_type": "write"
+        }
+      ],
+      "nl_assertions": [],
+      "communicate_checks": null,
+      "reward_basis": [
+        "DB",
+        "NL_ASSERTION"
+      ],
+      "reward_breakdown": {
+        "DB": 0.0,
+        "NL_ASSERTION": 1.0
+      },
+      "info": {
+        "env": null,
+        "nl": {
+          "note": "No nl_assertions to evaluate"
+        },
+        "communicate": null,
+        "action": null
+      }
+    },
+    "termination": "user_stop"
+  }
+]

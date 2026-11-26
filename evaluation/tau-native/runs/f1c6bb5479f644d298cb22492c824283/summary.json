@@ -1,0 +1,14 @@
+{
+  "requested_trials": 3,
+  "scored": 2,
+  "errors": 1,
+  "successes": 0,
+  "native_mean_reward": 0.0,
+  "complete": false,
+  "termination_counts": {
+    "user_stop": 2,
+    "run_error": 1
+  },
+  "success_rate_over_requested": 0.0,
+  "leaderboard_comparable": false
+}
