@@ -81,7 +81,7 @@ def customer_id(state):
     return state.get("verified_user_id") or state.get("identity_state", {}).get("customer_id")
 
 
-ORDER_ID = re.compile(r"\b(?:ORD-\d+|W\d{7})\b", re.IGNORECASE)
+ORDER_ID = re.compile(r"\bORD-\d+\b", re.IGNORECASE)
 EMAIL = re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.IGNORECASE)
 
 
@@ -90,8 +90,7 @@ def latest_order_id(messages):
     for message in reversed(messages):
         if isinstance(message, HumanMessage) and isinstance(message.content, str):
             if match := ORDER_ID.search(message.content):
-                identifier = match.group().upper()
-                return "#" + identifier if identifier.startswith("W") else identifier
+                return match.group().upper()
     return None
 
 

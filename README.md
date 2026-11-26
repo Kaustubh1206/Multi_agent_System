@@ -176,18 +176,7 @@ keep its results separate from the original report. The two focused metric
 definitions live in their respective scripts; shared execution remains in
 `Evaluations/runner.py`.
 
-On branch `evaluation/tau-retail`, [τ-bench source probes](evaluation/tau-retail/README.md)
-use a pinned Sierra retail snapshot to test read-only status, identification and
-ownership. Start with `python Evaluations/tau_retail/evaluate.py --audit`, then
-`python Evaluations/tau_retail/evaluate.py --limit 3` with Ollama running. The
-default reviewed 50-task source produces 76 adapted probes; the legacy 114-task
-source produces 118. These are narrower tests, not official benchmark scores.
-The [second evaluation review](Evaluations/2_Evaluation_analysis.md) documents
-the five remaining answer failures and response changes on this branch.
-
-Branch `evaluation/tau-retail-native` adds a separate
-[native τ-bench runtime](Evaluations/tau_native/README.md): original retail
-tasks, the upstream user simulator and transactional tools, explicit customer
-confirmation, fresh databases, and native reward evaluation. Install its optional
-dependencies in the shared root environment with `uv sync --frozen --extra tau-native`.
-The read-only application and probe commands remain available.
+Branch `ThinkingBox` evaluates all 507 ThinkingBox-Bench v1.0 tasks with a
+supervisor/specialist MAS, source tools and policies, native checks, and DeepEval
+Task Completion and Answer Correctness. See
+[ThinkingBox setup and commands](Evaluations/thinkingbox/README.md).

@@ -7,4 +7,4 @@ __pycache__/
 /evaluation/deepeval/reports/
 .deepeval/
 /.cache/
-/evaluation/tau-native/runs/
+/evaluation/thinkingbox/runs/

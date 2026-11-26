@@ -66,10 +66,6 @@ def get_policy(topic: str) -> dict:
     if topic not in {"returns", "refunds", "cancellations", "shipping", "identification"}:
         return {"status": "unsupported"}
     version = load_customers().get("policy_version", "simple-retail-v1")
-    if version == "tau-status-probes-v1":
-        # These projections support status only. Never apply our retail policy
-        # to a benchmark order with different rules and missing delivery facts.
-        return {"status": "unsupported"}
     text = (DATA / "policy.md").read_text()
     if f"`{version}`" not in text:
         raise ValueError("Policy document and dataset versions differ")

@@ -113,15 +113,9 @@ report. Keep [1_Evaluation.md](1_Evaluation.md) as the original and read the
 output separately. A better judge score alone does not establish better behavior.
 
 The [second-run review](2_Evaluation_analysis.md) covers the remaining five
-Answer Correctness failures and the shorter replies. On `evaluation/tau-retail`,
-the [τ-bench source probes](../evaluation/tau-retail/README.md) run source-backed
-status/identity/ownership questions without adding transactional tools. Their
-scores are labeled separately from both the 25-task suite and native τ-bench.
-
-For original transactional tasks on `evaluation/tau-retail-native`, use the
-[native runner](tau_native/README.md). It has an optional `tau-native` extra in
-the root environment and uses upstream reward evaluation. It does not replace
-these DeepEval scripts or score rewritten probes as native task completion.
+Answer Correctness failures and the shorter replies. ThinkingBox-Bench has a
+separate [runner](thinkingbox/README.md) on branch
+`ThinkingBox`, using the same root environment and the two focused metrics.
 
 ## Tasks and expected outcomes
 

@@ -1,0 +1,19 @@
+{
+  "benchmark": "ThinkingBox-Bench v1.0",
+  "task_count": 507,
+  "official_data_url": "https://github.com/microsoft/thinkingbox-data",
+  "data_url": "https://github.com/MrSergSanch/thinkingbox-data",
+  "data_commit": "4a4a3a28c395af51f2c77ab72805d0ee0f94b539",
+  "framework_url": "https://github.com/microsoft/thinkingbox",
+  "framework_commit": "ef2546974a286afa3f189dc711d31bc5aa6d1f39",
+  "task_list_sha256": "ba1b335163807a00fd80e622c6a0889436d1264081e910c1d52a10d37ab24ac6",
+  "domain_counts": {
+    "sandbox_external_retail": 98,
+    "sandbox_auto_insurance": 100,
+    "sandbox_consulting": 101,
+    "external_booking_v1": 104,
+    "sandbox_neobank_support_v1": 104
+  },
+  "leaderboard_comparable": false,
+  "source_note": "Official data URL was unavailable; pinned public mirror, not verified as an official release tag."
+}
